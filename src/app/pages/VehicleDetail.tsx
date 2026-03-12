@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Vehicle, Service } from "../types";
+import { Vehicle, OrdenTrabajo } from "../types";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -9,7 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { ServiceForm } from "../components/ServiceForm";
+import { OrderForm } from "../components/OrderForm";
+import { OrderDetailModal } from "../components/OrderDetailModal";
 import {
   ArrowLeft,
   Plus,
@@ -17,19 +18,26 @@ import {
   Calendar,
   DollarSign,
   User,
+  FileText,
+  Edit2,
 } from "lucide-react";
+import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 
 export function VehicleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
-  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [orders, setOrders] = useState<OrdenTrabajo[]>([]);
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<OrdenTrabajo | null>(null);
+  const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<OrdenTrabajo | undefined>();
+  const [nextOTNumber, setNextOTNumber] = useState(1);
 
   useEffect(() => {
     loadVehicle();
-    loadServices();
+    loadOrders();
   }, [id]);
 
   const loadVehicle = () => {
@@ -41,46 +49,104 @@ export function VehicleDetail() {
     }
   };
 
-  const loadServices = () => {
-    const stored = localStorage.getItem("services");
+  const loadOrders = () => {
+    const stored = localStorage.getItem("ordenesTrabajo");
+    const savedOTNumber = localStorage.getItem("nextOTNumber");
     if (stored) {
-      const allServices: Service[] = JSON.parse(stored);
-      const vehicleServices = allServices
-        .filter((s) => s.vehicleId === id)
-        .map((s) => ({
-          ...s,
-          // localStorage may hold strings, convert back to numbers
-          costo: Number(s.costo),
-          kilometraje: Number(s.kilometraje),
-        }));
-      setServices(
-        vehicleServices.sort(
+      const allOrders: OrdenTrabajo[] = JSON.parse(stored);
+      const vehicleOrders = allOrders
+        .filter((o) => o.vehicleId === id)
+        .sort(
           (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
-        ),
-      );
+        );
+      setOrders(vehicleOrders);
+    }
+    if (savedOTNumber) {
+      setNextOTNumber(parseInt(savedOTNumber));
     }
   };
 
-  const handleAddService = (serviceData: Omit<Service, "id">) => {
-    const newService: Service = {
-      ...serviceData,
-      id: Date.now().toString(),
-    };
-
-    const stored = localStorage.getItem("services");
-    const allServices = stored ? JSON.parse(stored) : [];
-    const updatedServices = [...allServices, newService];
-    localStorage.setItem("services", JSON.stringify(updatedServices));
-
-    setServices([newService, ...services]);
-    setShowServiceForm(false);
-    toast.success("Servicio registrado exitosamente");
+  const generateOTNumber = (): string => {
+    const newNumber = nextOTNumber;
+    setNextOTNumber(newNumber + 1);
+    localStorage.setItem("nextOTNumber", (newNumber + 1).toString());
+    return `OT-${String(newNumber).padStart(3, "0")}`;
   };
 
-  const totalGastado = services.reduce(
-    (sum, service) => sum + Number(service.costo),
-    0,
-  );
+  const handleAddOrder = (
+    orderData: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
+  ) => {
+    const newOrder: OrdenTrabajo = {
+      ...orderData,
+      id: Date.now().toString(),
+      numeroOT: generateOTNumber(),
+      createdAt: new Date().toISOString(),
+    };
+
+    const stored = localStorage.getItem("ordenesTrabajo");
+    const allOrders = stored ? JSON.parse(stored) : [];
+    const updatedOrders = [...allOrders, newOrder];
+    localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedOrders));
+
+    setOrders([newOrder, ...orders]);
+    setShowOrderForm(false);
+    toast.success("Orden de trabajo creada exitosamente");
+  };
+
+  const handleUpdateOrder = (
+    orderData: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
+  ) => {
+    if (!editingOrder) return;
+
+    const updatedOrders = orders.map((o) =>
+      o.id === editingOrder.id ? { ...o, ...orderData } : o,
+    );
+
+    const stored = localStorage.getItem("ordenesTrabajo");
+    const allOrders = stored ? JSON.parse(stored) : [];
+    const updatedAllOrders = allOrders.map((o) =>
+      o.id === editingOrder.id ? { ...o, ...orderData } : o,
+    );
+
+    localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedAllOrders));
+    setOrders(updatedOrders);
+    setShowOrderForm(false);
+    setEditingOrder(undefined);
+    toast.success("Orden actualizada exitosamente");
+  };
+
+  const handleEditOrder = (order: OrdenTrabajo) => {
+    setEditingOrder(order);
+    setShowOrderDetailModal(false);
+    setShowOrderForm(true);
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    if (confirm("¿Confirmá que querés eliminar esta orden de trabajo?")) {
+      const updatedOrders = orders.filter((o) => o.id !== orderId);
+      const stored = localStorage.getItem("ordenesTrabajo");
+      const allOrders = stored ? JSON.parse(stored) : [];
+      const updatedAllOrders = allOrders.filter((o) => o.id !== orderId);
+
+      localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedAllOrders));
+      setOrders(updatedOrders);
+      setShowOrderDetailModal(false);
+      toast.success("Orden eliminada exitosamente");
+    }
+  };
+
+  const getStatusColor = (estado: string) => {
+    switch (estado) {
+      case "completada":
+        return "bg-green-100 text-green-800";
+      case "en-progreso":
+        return "bg-blue-100 text-blue-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const totalGastado = orders.reduce((sum, order) => sum + order.monto, 0);
 
   if (!vehicle) {
     return (
@@ -142,8 +208,8 @@ export function VehicleDetail() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm text-gray-600">Total Servicios</p>
-              <p className="text-2xl font-semibold">{services.length}</p>
+              <p className="text-sm text-gray-600">Total Órdenes</p>
+              <p className="text-2xl font-semibold">{orders.length}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Gastado</p>
@@ -160,21 +226,19 @@ export function VehicleDetail() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Último Servicio</CardTitle>
+            <CardTitle className="text-lg">Última Orden</CardTitle>
           </CardHeader>
           <CardContent>
-            {services.length > 0 ? (
+            {orders.length > 0 ? (
               <div className="space-y-2">
-                <p className="font-semibold">{services[0].tipo}</p>
-                <p className="text-sm text-gray-600">
-                  {services[0].descripcion}
-                </p>
+                <p className="font-semibold">{orders[0].numeroOT}</p>
+                <p className="text-sm text-gray-600">{orders[0].descripcion}</p>
                 <p className="text-sm text-gray-500">
-                  {new Date(services[0].fecha).toLocaleDateString("es-AR")}
+                  {new Date(orders[0].fecha).toLocaleDateString("es-AR")}
                 </p>
               </div>
             ) : (
-              <p className="text-gray-500">Sin servicios registrados</p>
+              <p className="text-gray-500">Sin órdenes registradas</p>
             )}
           </CardContent>
         </Card>

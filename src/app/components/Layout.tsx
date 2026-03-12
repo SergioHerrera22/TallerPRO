@@ -1,5 +1,13 @@
 import { Link, useLocation } from "react-router";
-import { Car, DollarSign, Home } from "lucide-react";
+import {
+  Car,
+  DollarSign,
+  Home,
+  FileText,
+  CreditCard,
+  Droplets,
+  Receipt,
+} from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -7,6 +15,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isActive = (path: string) => {
     return location.pathname === path;
   };
+
+  const navLinks = [
+    { path: "/", label: "Inicio", icon: Home },
+    { path: "/ordenes", label: "Órdenes", icon: FileText },
+    { path: "/cuentas", label: "Cuentas", icon: Receipt },
+    { path: "/cheques", label: "Cheques", icon: CreditCard },
+    { path: "/lavados", label: "Lavados", icon: Droplets },
+    { path: "/gastos", label: "Gastos", icon: DollarSign },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -20,29 +37,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   Taller PRO
                 </span>
               </div>
-              <div className="ml-6 flex space-x-8">
-                <Link
-                  to="/"
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    isActive("/")
-                      ? "border-blue-500 text-gray-900"
-                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                  }`}
-                >
-                  <Home className="h-4 w-4 mr-2" />
-                  Inicio
-                </Link>
-                <Link
-                  to="/gastos"
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    isActive("/gastos")
-                      ? "border-blue-500 text-gray-900"
-                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                  }`}
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Gastos
-                </Link>
+              <div className="ml-6 flex space-x-1 flex-wrap">
+                {navLinks.map(({ path, label, icon: Icon }) => (
+                  <Link
+                    key={path}
+                    to={path}
+                    className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium transition ${
+                      isActive(path)
+                        ? "bg-blue-50 text-blue-600 border-b-2 border-blue-500"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 mr-2" />
+                    {label}
+                  </Link>
+                ))}
               </div>
             </div>
           </div>

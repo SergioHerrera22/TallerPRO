@@ -33,3 +33,41 @@ export interface Expense {
   proveedor?: string;
   metodoPago: string;
 }
+
+export interface OrdenTrabajo {
+  id: string;
+  numeroOT: string;
+  vehicleId: string;
+  patente: string;
+  cliente: string;
+  fecha: string;
+  descripcion: string;
+  monto: number;
+  tecnico: string;
+  lavado: boolean;
+  estado: "pendiente" | "en-progreso" | "completada";
+  observaciones?: string;
+  createdAt: string;
+}
+
+export interface CuentaCorriente {
+  id: string;
+  cliente: string;
+  totalDeudora: number;
+  totalPagado: number;
+  saldoPendiente: number;
+  updatedAt: string;
+}
+
+export interface Cheque {
+  id: string;
+  fechaRecepcion: string;
+  fechaCobro: string;
+  emisor: string;
+  destino: string;
+  estado: "en-cartera" | "entregado" | "cobrado";
+  monto: number;
+  numero?: string;
+  observaciones?: string;
+  createdAt: string;
+}
