@@ -178,9 +178,9 @@ export function VehicleDetail() {
               {vehicle.marca} {vehicle.modelo} {vehicle.anio} - {vehicle.color}
             </p>
           </div>
-          <Button onClick={() => setShowServiceForm(true)}>
+          <Button onClick={() => setShowOrderForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Nuevo Servicio
+            Nueva Orden de Trabajo
           </Button>
         </div>
       </div>
@@ -246,39 +246,46 @@ export function VehicleDetail() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Historial de Servicios</CardTitle>
+          <CardTitle>Historial de Órdenes de Trabajo</CardTitle>
           <CardDescription>
-            Todos los mantenimientos y reparaciones realizados
+            Todas las órdenes de trabajo realizadas
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {services.length === 0 ? (
+          {orders.length === 0 ? (
             <div className="text-center py-12">
               <Wrench className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 mb-4">
-                No hay servicios registrados para este vehículo
+                No hay órdenes registradas para este vehículo
               </p>
-              <Button onClick={() => setShowServiceForm(true)}>
+              <Button onClick={() => setShowOrderForm(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Registrar Primer Servicio
+                Registrar Primera Orden
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
-              {services.map((service) => (
+              {orders.map((order) => (
                 <div
-                  key={service.id}
-                  className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                  key={order.id}
+                  className="border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedOrder(order);
+                    setShowOrderDetailModal(true);
+                  }}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                     <div>
-                      <h3 className="font-semibold text-lg">{service.tipo}</h3>
-                      <p className="text-gray-600">{service.descripcion}</p>
+                      <h3 className="font-semibold text-lg">{order.numeroOT}</h3>
+                      <p className="text-gray-600">{order.descripcion}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-semibold text-green-600">
+                      <Badge className={getStatusColor(order.estado)}>
+                        {order.estado === "completada" ? "Completada" : order.estado === "en-progreso" ? "En Progreso" : "Pendiente"}
+                      </Badge>
+                      <p className="text-lg font-semibold text-green-600 mt-1">
                         $
-                        {service.costo.toLocaleString("es-AR", {
+                        {order.monto.toLocaleString("es-AR", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
@@ -288,25 +295,9 @@ export function VehicleDetail() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                     <div className="flex items-center gap-2 text-gray-600">
                       <Calendar className="h-4 w-4" />
-                      {new Date(service.fecha).toLocaleDateString("es-AR")}
+                      {new Date(order.fecha).toLocaleDateString("es-AR")}
                     </div>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <User className="h-4 w-4" />
-                      {service.tecnico}
-                    </div>
-                    {service.kilometraje > 0 && (
-                      <div className="text-gray-600">
-                        {service.kilometraje.toLocaleString()} km
-                      </div>
-                    )}
                   </div>
-                  {service.observaciones && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm text-gray-600">
-                        <strong>Observaciones:</strong> {service.observaciones}
-                      </p>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -314,11 +305,13 @@ export function VehicleDetail() {
         </CardContent>
       </Card>
 
-      {showServiceForm && (
-        <ServiceForm
-          vehicleId={vehicle.id}
-          onSubmit={handleAddService}
-          onCancel={() => setShowServiceForm(false)}
+      {showOrderForm && (
+        <OrderForm
+          isOpen={showOrderForm}
+          onClose={() => setShowOrderForm(false)}
+          onSubmit={handleAddOrder}
+          vehicles={[vehicle]}
+          initialData={editingOrder}
         />
       )}
     </div>

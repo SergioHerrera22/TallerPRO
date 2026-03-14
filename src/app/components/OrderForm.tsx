@@ -65,8 +65,17 @@ export function OrderForm({
         estado: initialData.estado,
         observaciones: initialData.observaciones || "",
       });
+    } else if (vehicles.length === 1) {
+      // Si solo hay un vehículo, preseleccionarlo
+      const vehicle = vehicles[0];
+      setFormData((prev) => ({
+        ...prev,
+        vehicleId: vehicle.id,
+        patente: vehicle.patente,
+        cliente: vehicle.cliente,
+      }));
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, vehicles]);
 
   const handleVehicleChange = (vehicleId: string) => {
     const vehicle = vehicles.find((v) => v.id === vehicleId);
@@ -124,24 +133,34 @@ export function OrderForm({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="vehicle">Vehículo *</Label>
-              <Select
-                value={formData.vehicleId}
-                onValueChange={handleVehicleChange}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione vehículo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.patente} - {v.marca} {v.modelo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {vehicles.length > 1 ? (
+              <div>
+                <Label htmlFor="vehicle">Vehículo *</Label>
+                <Select
+                  value={formData.vehicleId}
+                  onValueChange={handleVehicleChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione vehículo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vehicles.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.patente} - {v.marca} {v.modelo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div>
+                <Label>Vehículo</Label>
+                <Input
+                  value={`${vehicles[0]?.patente} - ${vehicles[0]?.marca} ${vehicles[0]?.modelo}`}
+                  disabled
+                />
+              </div>
+            )}
 
             <div>
               <Label htmlFor="fecha">Fecha *</Label>
