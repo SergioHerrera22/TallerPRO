@@ -40,9 +40,12 @@ export interface OrdenTrabajo {
   vehicleId: string;
   patente: string;
   cliente: string;
+  telefono?: string;
   fecha: string;
   descripcion: string;
   monto: number;
+  entregasCuenta?: number[]; // Array de entregas a cuenta
+  saldoPendiente: number; // Monto total - sumatoria de entregas a cuenta
   tecnico: string;
   lavado: boolean;
   estado: "pendiente" | "en-progreso" | "completada";
@@ -55,8 +58,17 @@ export interface CuentaCorriente {
   entidad: string; // Nombre de la empresa/banco/proveedor
   tipo: "banco" | "proveedor" | "otro";
   saldo: number; // Positivo: dinero disponible, Negativo: deuda
-  limiteCredito?: number; // Para proveedores
+  gastos?: GastoProveedor[]; // Solo para proveedores
   updatedAt: string;
+}
+
+export interface GastoProveedor {
+  id: string;
+  fecha: string;
+  detalleProducto: string;
+  iva: number;
+  total: number;
+  createdAt: string;
 }
 
 export interface Cheque {
@@ -65,9 +77,11 @@ export interface Cheque {
   fechaCobro: string;
   emisor: string;
   destino: string;
-  estado: "en-cartera" | "entregado" | "cobrado";
+  estado: "en-cartera" | "entregado" | "cobrado" | "imputado";
   monto: number;
   numero?: string;
   observaciones?: string;
+  clienteId?: string; // ID del cliente (viene de vehicles) para imputación
+  fechaImputacion?: string; // Fecha cuando se imputó el cheque
   createdAt: string;
 }

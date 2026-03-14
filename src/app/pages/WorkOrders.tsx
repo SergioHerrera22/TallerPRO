@@ -45,7 +45,19 @@ export function WorkOrders() {
 
     if (savedOrders) {
       const parsedOrders = JSON.parse(savedOrders);
-      setOrders(parsedOrders);
+      // Migrar órdenes existentes para incluir nuevos campos
+      const migratedOrders = parsedOrders.map((order: any) => ({
+        ...order,
+        telefono: order.telefono || "",
+        entregasCuenta: order.entregasCuenta || [],
+        saldoPendiente:
+          order.saldoPendiente !== undefined
+            ? order.saldoPendiente
+            : order.monto,
+      }));
+      setOrders(migratedOrders);
+      // Guardar órdenes migradas
+      localStorage.setItem("ordenesTrabajo", JSON.stringify(migratedOrders));
     }
     if (savedVehicles) {
       setVehicles(JSON.parse(savedVehicles));
@@ -65,10 +77,15 @@ export function WorkOrders() {
   const handleCreateOrder = (
     data: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
   ) => {
+    // Obtener el teléfono del vehículo
+    const vehicle = vehicles.find((v) => v.id === data.vehicleId);
+    const telefono = vehicle?.telefono || "";
+
     const newOrder: OrdenTrabajo = {
       ...data,
       id: Date.now().toString(),
       numeroOT: generateOTNumber(),
+      telefono,
       createdAt: new Date().toISOString(),
     };
 

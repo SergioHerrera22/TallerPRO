@@ -42,9 +42,12 @@ export function OrderForm({
     vehicleId: "",
     patente: "",
     cliente: "",
+    telefono: "",
     fecha: new Date().toISOString().split("T")[0],
     descripcion: "",
     monto: 0,
+    entregasCuenta: [],
+    saldoPendiente: 0,
     tecnico: "",
     lavado: false,
     estado: "pendiente",
@@ -57,9 +60,12 @@ export function OrderForm({
         vehicleId: initialData.vehicleId,
         patente: initialData.patente,
         cliente: initialData.cliente,
+        telefono: initialData.telefono || "",
         fecha: initialData.fecha,
         descripcion: initialData.descripcion,
         monto: initialData.monto,
+        entregasCuenta: initialData.entregasCuenta || [],
+        saldoPendiente: initialData.saldoPendiente || initialData.monto,
         tecnico: initialData.tecnico,
         lavado: initialData.lavado,
         estado: initialData.estado,
@@ -73,6 +79,9 @@ export function OrderForm({
         vehicleId: vehicle.id,
         patente: vehicle.patente,
         cliente: vehicle.cliente,
+        telefono: vehicle.telefono,
+        entregasCuenta: [],
+        saldoPendiente: 0,
       }));
     }
   }, [initialData, isOpen, vehicles]);
@@ -85,6 +94,9 @@ export function OrderForm({
         vehicleId,
         patente: vehicle.patente,
         cliente: vehicle.cliente,
+        telefono: vehicle.telefono,
+        entregasCuenta: [],
+        saldoPendiente: 0,
       });
     }
   };
@@ -184,6 +196,11 @@ export function OrderForm({
             </div>
 
             <div>
+              <Label htmlFor="telefono">Teléfono</Label>
+              <Input value={formData.telefono} disabled />
+            </div>
+
+            <div>
               <Label htmlFor="tecnico">Técnico *</Label>
               <Input
                 placeholder="Técnico responsable"
@@ -195,20 +212,112 @@ export function OrderForm({
             </div>
 
             <div>
-              <Label htmlFor="monto">Monto $</Label>
+              <Label htmlFor="monto">Monto Total $</Label>
               <Input
                 type="number"
                 step="0.01"
                 min="0"
                 placeholder="0.00"
                 value={formData.monto}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const newMonto = parseFloat(e.target.value) || 0;
+                  const totalEntregas = (formData.entregasCuenta || []).reduce(
+                    (sum, entrega) => sum + entrega,
+                    0,
+                  );
                   setFormData({
                     ...formData,
-                    monto: parseFloat(e.target.value) || 0,
-                  })
+                    monto: newMonto,
+                    saldoPendiente: newMonto - totalEntregas,
+                  });
+                }}
+              />
+            </div>
+
+            {/* Entregas a cuenta */}
+            <div className="space-y-2">
+              <Label>Entregas a Cuenta</Label>
+              {formData.entregasCuenta &&
+                formData.entregasCuenta.map((entrega, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={entrega}
+                      onChange={(e) => {
+                        const newEntregas = [
+                          ...(formData.entregasCuenta || []),
+                        ];
+                        newEntregas[index] = parseFloat(e.target.value) || 0;
+                        const totalEntregas = newEntregas.reduce(
+                          (sum, ent) => sum + ent,
+                          0,
+                        );
+                        setFormData({
+                          ...formData,
+                          entregasCuenta: newEntregas,
+                          saldoPendiente: formData.monto - totalEntregas,
+                        });
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newEntregas = (
+                          formData.entregasCuenta || []
+                        ).filter((_, i) => i !== index);
+                        const totalEntregas = newEntregas.reduce(
+                          (sum, ent) => sum + ent,
+                          0,
+                        );
+                        setFormData({
+                          ...formData,
+                          entregasCuenta: newEntregas,
+                          saldoPendiente: formData.monto - totalEntregas,
+                        });
+                      }}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFormData({
+                    ...formData,
+                    entregasCuenta: [...(formData.entregasCuenta || []), 0],
+                  });
+                }}
+              >
+                + Agregar Entrega
+              </Button>
+            </div>
+
+            <div>
+              <Label>Saldo Pendiente $</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.saldoPendiente}
+                disabled
+                className={
+                  formData.saldoPendiente > 0
+                    ? "border-red-300 bg-red-50"
+                    : "border-green-300 bg-green-50"
                 }
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.saldoPendiente > 0
+                  ? `El cliente debe $${formData.saldoPendiente.toFixed(2)}`
+                  : "Pago completo"}
+              </p>
             </div>
 
             <div>

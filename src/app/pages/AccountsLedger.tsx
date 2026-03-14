@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CuentaCorriente } from "../types";
+import { CuentaCorriente, GastoProveedor } from "../types";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -24,6 +24,8 @@ import {
   Edit2,
   TrendingUp,
   TrendingDown,
+  Receipt,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -41,10 +43,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
 
 export function AccountsLedger() {
   const [cuentas, setCuentas] = useState<CuentaCorriente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterTipo, setFilterTipo] = useState<string>("all");
   const [showCuentaDialog, setShowCuentaDialog] = useState(false);
   const [editingCuenta, setEditingCuenta] = useState<CuentaCorriente | null>(
     null,
@@ -53,7 +57,19 @@ export function AccountsLedger() {
     entidad: "",
     tipo: "banco" as "banco" | "proveedor" | "otro",
     saldo: 0,
-    limiteCredito: 0,
+  });
+
+  // Estados para gastos
+  const [showGastoDialog, setShowGastoDialog] = useState(false);
+  const [showGastosListDialog, setShowGastosListDialog] = useState(false);
+  const [selectedCuenta, setSelectedCuenta] = useState<CuentaCorriente | null>(
+    null,
+  );
+  const [gastoFormData, setGastoFormData] = useState({
+    fecha: new Date().toISOString().split("T")[0],
+    detalleProducto: "",
+    iva: 0,
+    total: 0,
   });
 
   useEffect(() => {
@@ -100,8 +116,6 @@ export function AccountsLedger() {
       entidad: formData.entidad,
       tipo: formData.tipo,
       saldo: formData.saldo,
-      limiteCredito:
-        formData.tipo === "proveedor" ? formData.limiteCredito : undefined,
       updatedAt: new Date().toISOString(),
     };
 
@@ -125,7 +139,6 @@ export function AccountsLedger() {
       entidad: "",
       tipo: "banco",
       saldo: 0,
-      limiteCredito: 0,
     });
   };
 
@@ -135,7 +148,6 @@ export function AccountsLedger() {
       entidad: cuenta.entidad,
       tipo: cuenta.tipo,
       saldo: cuenta.saldo,
-      limiteCredito: cuenta.limiteCredito || 0,
     });
     setShowCuentaDialog(true);
   };
@@ -149,16 +161,84 @@ export function AccountsLedger() {
     }
   };
 
-  const filteredCuentas = cuentas.filter((cuenta) =>
-    (cuenta.entidad || cuenta.cliente || "")
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase()),
-  );
+  // Funciones para gastos
+  const handleAddGasto = (cuenta: CuentaCorriente) => {
+    if (cuenta.tipo !== "proveedor") {
+      toast.error("Solo se pueden agregar gastos a cuentas de proveedores");
+      return;
+    }
+    setSelectedCuenta(cuenta);
+    setGastoFormData({
+      fecha: new Date().toISOString().split("T")[0],
+      detalleProducto: "",
+      iva: 0,
+      unidades: 1,
+      total: 0,
+    });
+    setShowGastoDialog(true);
+  };
 
-  const totalSaldoPositivo = filteredCuentas.reduce(
-    (sum, c) => sum + (c.saldo > 0 ? c.saldo : 0),
-    0,
-  );
+  const handleSaveGasto = () => {
+    if (!selectedCuenta) return;
+
+    if (!gastoFormData.detalleProducto.trim()) {
+      toast.error("Ingrese el detalle del producto");
+      return;
+    }
+
+    if (gastoFormData.total <= 0) {
+      toast.error("El total debe ser mayor a 0");
+      return;
+    }
+
+    const ivaCalculado = parseFloat(
+      (gastoFormData.total - gastoFormData.total / 1.21).toFixed(2),
+    );
+
+    const nuevoGasto: GastoProveedor = {
+      id: Date.now().toString(),
+      fecha: gastoFormData.fecha,
+      detalleProducto: gastoFormData.detalleProducto,
+      iva: ivaCalculado,
+
+      total: gastoFormData.total,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedCuentas = cuentas.map((cuenta) => {
+      if (cuenta.id === selectedCuenta.id) {
+        const gastosActuales = cuenta.gastos || [];
+        return {
+          ...cuenta,
+          gastos: [...gastosActuales, nuevoGasto],
+          saldo: cuenta.saldo - gastoFormData.total, // Disminuir el saldo (aumentar deuda)
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return cuenta;
+    });
+
+    setCuentas(updatedCuentas);
+    localStorage.setItem("cuentasCorrientes", JSON.stringify(updatedCuentas));
+    toast.success("Gasto agregado exitosamente");
+
+    setShowGastoDialog(false);
+    setSelectedCuenta(null);
+  };
+
+  const handleViewGastos = (cuenta: CuentaCorriente) => {
+    setSelectedCuenta(cuenta);
+    setShowGastosListDialog(true);
+  };
+
+  const filteredCuentas = cuentas.filter((cuenta) => {
+    const matchesSearch = (cuenta.entidad || cuenta.cliente || "")
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesTipo = filterTipo === "all" || cuenta.tipo === filterTipo;
+    return matchesSearch && matchesTipo;
+  });
+
   const totalSaldoNegativo = filteredCuentas.reduce(
     (sum, c) => sum + (c.saldo < 0 ? Math.abs(c.saldo) : 0),
     0,
@@ -176,21 +256,7 @@ export function AccountsLedger() {
       </div>
 
       {/* Resumen */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Saldo Disponible
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              ${totalSaldoPositivo.toFixed(2)}
-            </div>
-            <p className="text-xs text-gray-500">en bancos y cuentas</p>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
@@ -234,7 +300,30 @@ export function AccountsLedger() {
                 />
               </div>
             </div>
-            <Button onClick={() => setShowCuentaDialog(true)} className="gap-2">
+            <div className="flex gap-2">
+              <select
+                value={filterTipo}
+                onChange={(e) => setFilterTipo(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              >
+                <option value="all">Todos los tipos</option>
+                <option value="banco">Bancos</option>
+                <option value="proveedor">Proveedores</option>
+                <option value="otro">Otros</option>
+              </select>
+            </div>
+            <Button
+              onClick={() => {
+                setEditingCuenta(null);
+                setFormData({
+                  entidad: "",
+                  tipo: "banco",
+                  saldo: 0,
+                });
+                setShowCuentaDialog(true);
+              }}
+              className="gap-2"
+            >
               <Plus className="h-4 w-4" />
               Nueva Cuenta
             </Button>
@@ -260,7 +349,6 @@ export function AccountsLedger() {
                   <TableHead>Entidad</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
-                  <TableHead className="text-right">Límite Crédito</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -303,12 +391,27 @@ export function AccountsLedger() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {cuenta.limiteCredito
-                          ? `$${cuenta.limiteCredito.toFixed(2)}`
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
+                          {cuenta.tipo === "proveedor" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleViewGastos(cuenta)}
+                                title="Ver gastos"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleAddGasto(cuenta)}
+                                title="Agregar gasto"
+                              >
+                                <Receipt className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
@@ -384,42 +487,25 @@ export function AccountsLedger() {
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="saldo">Saldo Actual</Label>
-              <Input
-                id="saldo"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.saldo}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    saldo: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Positivo: dinero disponible, Negativo: deuda pendiente
-              </p>
-            </div>
-
-            {formData.tipo === "proveedor" && (
+            {editingCuenta && (
               <div>
-                <Label htmlFor="limiteCredito">Límite de Crédito</Label>
+                <Label htmlFor="saldo">Saldo Actual</Label>
                 <Input
-                  id="limiteCredito"
+                  id="saldo"
                   type="number"
                   step="0.01"
                   placeholder="0.00"
-                  value={formData.limiteCredito}
+                  value={formData.saldo}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      limiteCredito: parseFloat(e.target.value) || 0,
+                      saldo: parseFloat(e.target.value) || 0,
                     })
                   }
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Positivo: dinero disponible, Negativo: deuda pendiente
+                </p>
               </div>
             )}
           </div>
@@ -433,6 +519,176 @@ export function AccountsLedger() {
             </Button>
             <Button onClick={handleSaveCuenta}>
               {editingCuenta ? "Actualizar" : "Crear"} Cuenta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de gasto */}
+      <Dialog open={showGastoDialog} onOpenChange={setShowGastoDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar Gasto - {selectedCuenta?.entidad}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="fecha">Fecha *</Label>
+              <Input
+                id="fecha"
+                type="date"
+                value={gastoFormData.fecha}
+                onChange={(e) =>
+                  setGastoFormData({ ...gastoFormData, fecha: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="detalle">Detalle del Producto *</Label>
+              <Textarea
+                id="detalle"
+                placeholder="Descripción del producto o servicio"
+                value={gastoFormData.detalleProducto}
+                onChange={(e) =>
+                  setGastoFormData({
+                    ...gastoFormData,
+                    detalleProducto: e.target.value,
+                  })
+                }
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="iva">IVA (21%)</Label>
+                <Input
+                  id="iva"
+                  type="number"
+                  step="0.01"
+                  placeholder="$0.00"
+                  value={gastoFormData.iva}
+                  readOnly
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="total">Total ($) *</Label>
+                <Input
+                  id="total"
+                  type="number"
+                  step="0.01"
+                  placeholder="$0.00"
+                  value={gastoFormData.total}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(",", ".");
+                    const parsed = parseFloat(raw) || 0;
+                    const ivaCalculated = parseFloat(
+                      (parsed - parsed / 1.21).toFixed(2),
+                    );
+                    setGastoFormData({
+                      ...gastoFormData,
+                      total: parsed,
+                      iva: ivaCalculated,
+                    });
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Monto total del gasto (se sumará a la deuda con el proveedor)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGastoDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveGasto}>Agregar Gasto</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de lista de gastos */}
+      <Dialog
+        open={showGastosListDialog}
+        onOpenChange={setShowGastosListDialog}
+      >
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Gastos - {selectedCuenta?.entidad}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {selectedCuenta?.gastos && selectedCuenta.gastos.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Detalle</TableHead>
+                      <TableHead className="text-right">IVA</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedCuenta.gastos
+                      .sort(
+                        (a, b) =>
+                          new Date(b.fecha).getTime() -
+                          new Date(a.fecha).getTime(),
+                      )
+                      .map((gasto) => (
+                        <TableRow key={gasto.id}>
+                          <TableCell className="text-sm">
+                            {new Date(gasto.fecha).toLocaleDateString("es-AR")}
+                          </TableCell>
+                          <TableCell
+                            className="max-w-xs truncate"
+                            title={gasto.detalleProducto}
+                          >
+                            {gasto.detalleProducto}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ${gasto.iva.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            ${gasto.total.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">
+                  No hay gastos registrados para este proveedor
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowGastosListDialog(false)}
+            >
+              Cerrar
+            </Button>
+            <Button
+              onClick={() => {
+                setShowGastosListDialog(false);
+                if (selectedCuenta) {
+                  handleAddGasto(selectedCuenta);
+                }
+              }}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Agregar Gasto
             </Button>
           </DialogFooter>
         </DialogContent>

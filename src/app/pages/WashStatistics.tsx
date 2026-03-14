@@ -21,10 +21,9 @@ import { Droplets, TrendingUp, Calendar } from "lucide-react";
 export function WashStatistics() {
   const [orders, setOrders] = useState<OrdenTrabajo[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<
-    Array<{ month: string; count: number; total: number }>
+    Array<{ month: string; count: number }>
   >([]);
   const [currentMonthWashes, setCurrentMonthWashes] = useState(0);
-  const [currentMonthTotal, setCurrentMonthTotal] = useState(0);
 
   useEffect(() => {
     loadStatistics();
@@ -52,30 +51,25 @@ export function WashStatistics() {
       });
 
       setCurrentMonthWashes(thisMonthWashes.length);
-      setCurrentMonthTotal(
-        thisMonthWashes.reduce((sum, o) => sum + o.monto, 0),
-      );
 
       // Generar estadísticas mensuales
-      const monthMap = new Map<string, { count: number; total: number }>();
+      const monthMap = new Map<string, { count: number }>();
 
       washOrders.forEach((order) => {
         const month = order.fecha.substring(0, 7);
         if (!monthMap.has(month)) {
-          monthMap.set(month, { count: 0, total: 0 });
+          monthMap.set(month, { count: 0 });
         }
 
         const stats = monthMap.get(month)!;
         stats.count++;
-        stats.total += order.monto;
       });
 
       // Convertir a array y ordenar
       const stats = Array.from(monthMap.entries())
-        .map(([month, { count, total }]) => ({
+        .map(([month, { count }]) => ({
           month,
           count,
-          total,
         }))
         .sort((a, b) => b.month.localeCompare(a.month));
 
@@ -85,8 +79,6 @@ export function WashStatistics() {
 
   const washOrders = orders.filter((o) => o.lavado);
   const totalWashes = washOrders.length;
-  const totalRevenue = washOrders.reduce((sum, o) => sum + o.monto, 0);
-  const avgPerWash = totalWashes > 0 ? totalRevenue / totalWashes : 0;
 
   const formatMonth = (monthStr: string): string => {
     const [year, month] = monthStr.split("-");
@@ -114,12 +106,12 @@ export function WashStatistics() {
           Estadísticas de Lavados
         </h1>
         <p className="text-gray-600">
-          Análisis de los servicios de lavado realizados
+          Conteo de los servicios de lavado realizados por mes
         </p>
       </div>
 
       {/* Tarjetas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -130,21 +122,6 @@ export function WashStatistics() {
           <CardContent>
             <div className="text-2xl font-bold">{currentMonthWashes}</div>
             <p className="text-xs text-gray-500">en este mes</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-500" />
-              Ingresos Lavados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${currentMonthTotal.toFixed(2)}
-            </div>
-            <p className="text-xs text-gray-500">este mes</p>
           </CardContent>
         </Card>
 
@@ -161,12 +138,16 @@ export function WashStatistics() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              Promedio por Lavado
+              Promedio Mensual
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${avgPerWash.toFixed(2)}</div>
-            <p className="text-xs text-gray-500">valor promedio</p>
+            <div className="text-2xl font-bold">
+              {monthlyStats.length > 0
+                ? (totalWashes / monthlyStats.length).toFixed(1)
+                : "0"}
+            </div>
+            <p className="text-xs text-gray-500">lavados por mes</p>
           </CardContent>
         </Card>
       </div>
@@ -189,10 +170,6 @@ export function WashStatistics() {
                   <TableHead className="text-right">
                     Cantidad de Lavados
                   </TableHead>
-                  <TableHead className="text-right">Ingresos Totales</TableHead>
-                  <TableHead className="text-right">
-                    Promedio por Lavado
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -205,17 +182,11 @@ export function WashStatistics() {
                       <TableCell className="text-right">
                         <Badge variant="outline">{stat.count}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">
-                        ${stat.total.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        ${(stat.total / stat.count).toFixed(2)}
-                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8">
+                    <TableCell colSpan={2} className="text-center py-8">
                       <p className="text-gray-500">
                         No hay datos de lavados registrados aún
                       </p>
@@ -281,7 +252,6 @@ export function WashStatistics() {
                     <TableHead>Fecha</TableHead>
                     <TableHead>Patente</TableHead>
                     <TableHead>Cliente</TableHead>
-                    <TableHead className="text-right">Monto</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -301,9 +271,6 @@ export function WashStatistics() {
                           {order.patente}
                         </TableCell>
                         <TableCell>{order.cliente}</TableCell>
-                        <TableCell className="text-right font-semibold">
-                          ${order.monto.toFixed(2)}
-                        </TableCell>
                       </TableRow>
                     ))}
                 </TableBody>

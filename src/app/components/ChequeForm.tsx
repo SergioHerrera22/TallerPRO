@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Cheque } from "../types";
+import { Cheque, Vehicle } from "../types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -44,6 +44,20 @@ export function ChequeForm({
     observaciones: "",
   });
 
+  const [clientes, setClientes] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Cargar lista de clientes únicos de los vehículos registrados
+    const storedVehicles = localStorage.getItem("vehicles");
+    if (storedVehicles) {
+      const vehicles: Vehicle[] = JSON.parse(storedVehicles);
+      const clientesUnicos = [
+        ...new Set(vehicles.map((v) => v.cliente)),
+      ].sort();
+      setClientes(clientesUnicos);
+    }
+  }, []);
+
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -62,8 +76,8 @@ export function ChequeForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.emisor || !formData.destino) {
-      toast.error("Complete los campos obligatorios");
+    if (!formData.destino) {
+      toast.error("Complete el campo destino");
       return;
     }
 
@@ -147,14 +161,28 @@ export function ChequeForm({
             </div>
 
             <div>
-              <Label htmlFor="emisor">Emisor (Quién lo entregó) *</Label>
-              <Input
-                placeholder="Nombre del cliente/empresa"
+              <Label htmlFor="emisor">Emisor (Quién lo entregó)</Label>
+              <Select
                 value={formData.emisor}
-                onChange={(e) =>
-                  setFormData({ ...formData, emisor: e.target.value })
+                onValueChange={(value) =>
+                  setFormData({ ...formData, emisor: value })
                 }
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar cliente o ingresar manualmente..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {clientes.map((cliente) => (
+                    <SelectItem key={cliente} value={cliente}>
+                      {cliente}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                Selecciona un cliente registrado o deja vacío para ingresar
+                manualmente
+              </p>
             </div>
 
             <div>
@@ -183,6 +211,7 @@ export function ChequeForm({
                   <SelectItem value="en-cartera">En Cartera</SelectItem>
                   <SelectItem value="entregado">Entregado</SelectItem>
                   <SelectItem value="cobrado">Cobrado</SelectItem>
+                  <SelectItem value="imputado">Imputado</SelectItem>
                 </SelectContent>
               </Select>
             </div>

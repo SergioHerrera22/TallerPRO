@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
 import { VehicleDetail } from "./pages/VehicleDetail";
 import { Expenses } from "./pages/Expenses";
+import { BusinessExpenses } from "./pages/BusinessExpenses";
 import { WorkOrders } from "./pages/WorkOrders";
 import { AccountsLedger } from "./pages/AccountsLedger";
 import { CheckManagement } from "./pages/CheckManagement";
@@ -30,6 +31,10 @@ function ExpensesPage() {
       <Expenses />
     </Layout>
   );
+}
+
+function BusinessExpensesPage() {
+  return <BusinessExpenses />;
 }
 
 function WorkOrdersPage() {
@@ -76,6 +81,10 @@ export const router = createBrowserRouter([
   {
     path: "/gastos",
     Component: ExpensesPage,
+  },
+  {
+    path: "/gestion-financiera",
+    Component: BusinessExpensesPage,
   },
   {
     path: "/ordenes",

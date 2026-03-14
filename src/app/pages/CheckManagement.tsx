@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Cheque } from "../types";
+import { Cheque, OrdenTrabajo, Vehicle } from "../types";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -19,7 +19,14 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { ChequeForm } from "../components/ChequeForm";
-import { Plus, Search, Edit2, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  CheckCircle,
+  DollarSign,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -28,15 +35,26 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
 export function CheckManagement() {
   const [cheques, setCheques] = useState<Cheque[]>([]);
+  const [ordenesTrabajo, setOrdenesTrabajo] = useState<OrdenTrabajo[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingCheque, setEditingCheque] = useState<Cheque | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterEstado, setFilterEstado] = useState<string>("all");
   const [selectedCheque, setSelectedCheque] = useState<Cheque | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showImputacionModal, setShowImputacionModal] = useState(false);
+  const [selectedClienteId, setSelectedClienteId] = useState<string>("");
 
   useEffect(() => {
     loadCheques();
@@ -46,6 +64,16 @@ export function CheckManagement() {
     const saved = localStorage.getItem("cheques");
     if (saved) {
       setCheques(JSON.parse(saved));
+    }
+
+    const savedOrdenes = localStorage.getItem("ordenesTrabajo");
+    if (savedOrdenes) {
+      setOrdenesTrabajo(JSON.parse(savedOrdenes));
+    }
+
+    const savedVehicles = localStorage.getItem("vehicles");
+    if (savedVehicles) {
+      setVehicles(JSON.parse(savedVehicles));
     }
   };
 
@@ -88,10 +116,111 @@ export function CheckManagement() {
     }
   };
 
-  const handleEditCheque = (cheque: Cheque) => {
-    setEditingCheque(cheque);
+  const handleImputarCheque = () => {
+    if (!selectedCheque || !selectedClienteId) return;
+
+    // Buscar el cliente seleccionado
+    const clienteSeleccionado = vehicles.find(
+      (v) => v.id === selectedClienteId,
+    );
+    if (!clienteSeleccionado) {
+      toast.error("Cliente no encontrado");
+      return;
+    }
+
+    // Obtener todas las órdenes del cliente con deuda pendiente, ordenadas por fecha (más antiguas primero)
+    const ordenesClienteConDeuda = ordenesTrabajo
+      .filter(
+        (orden) =>
+          orden.cliente === clienteSeleccionado.cliente &&
+          orden.saldoPendiente > 0,
+      )
+      .sort(
+        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+      );
+
+    if (ordenesClienteConDeuda.length === 0) {
+      toast.error("El cliente seleccionado no tiene deudas pendientes");
+      return;
+    }
+
+    // Calcular deuda total del cliente
+    const deudaTotalCliente = ordenesClienteConDeuda.reduce(
+      (sum, orden) => sum + orden.saldoPendiente,
+      0,
+    );
+
+    if (selectedCheque.monto > deudaTotalCliente) {
+      toast.error(
+        `El monto del cheque ($${selectedCheque.monto.toFixed(2)}) excede la deuda total del cliente ($${deudaTotalCliente.toFixed(2)})`,
+      );
+      return;
+    }
+
+    // Aplicar el pago distribuyéndolo entre las órdenes (empezando por la más antigua)
+    let montoRestante = selectedCheque.monto;
+    const updatedOrdenes = ordenesTrabajo.map((orden) => {
+      if (
+        orden.cliente === clienteSeleccionado.cliente &&
+        orden.saldoPendiente > 0 &&
+        montoRestante > 0
+      ) {
+        const pagoAplicado = Math.min(montoRestante, orden.saldoPendiente);
+        montoRestante -= pagoAplicado;
+
+        return {
+          ...orden,
+          entregasCuenta: [...(orden.entregasCuenta || []), pagoAplicado],
+          saldoPendiente: orden.saldoPendiente - pagoAplicado,
+        };
+      }
+      return orden;
+    });
+
+    // Actualizar el cheque
+    const updatedCheques = cheques.map((cheque) =>
+      cheque.id === selectedCheque.id
+        ? {
+            ...cheque,
+            estado: "imputado" as const,
+            clienteId: selectedClienteId,
+            fechaImputacion: new Date().toISOString(),
+            observaciones:
+              `${cheque.observaciones || ""} Imputado a cliente ${clienteSeleccionado.cliente}`.trim(),
+          }
+        : cheque,
+    );
+
+    // Guardar en localStorage
+    localStorage.setItem("cheques", JSON.stringify(updatedCheques));
+    localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedOrdenes));
+
+    // Actualizar estado
+    setCheques(updatedCheques);
+    setOrdenesTrabajo(updatedOrdenes);
+
+    // Cerrar modal y limpiar
+    setShowImputacionModal(false);
+    setSelectedClienteId("");
     setShowDetailModal(false);
-    setShowForm(true);
+
+    toast.success(
+      `Cheque imputado exitosamente a ${clienteSeleccionado.cliente}`,
+    );
+  };
+
+  const getClientesConDeuda = () => {
+    // Obtener clientes únicos que tienen deudas pendientes
+    const clientesConDeuda = new Set<string>();
+
+    ordenesTrabajo.forEach((orden) => {
+      if (orden.saldoPendiente > 0) {
+        clientesConDeuda.add(orden.cliente);
+      }
+    });
+
+    // Retornar los vehicles de esos clientes
+    return vehicles.filter((vehicle) => clientesConDeuda.has(vehicle.cliente));
   };
 
   const filteredCheques = cheques.filter((cheque) => {
@@ -112,6 +241,8 @@ export function CheckManagement() {
         return "bg-green-100 text-green-800";
       case "entregado":
         return "bg-blue-100 text-blue-800";
+      case "imputado":
+        return "bg-purple-100 text-purple-800";
       default:
         return "bg-yellow-100 text-yellow-800";
     }
@@ -123,6 +254,8 @@ export function CheckManagement() {
         return "Cobrado";
       case "entregado":
         return "Entregado";
+      case "imputado":
+        return "Imputado";
       default:
         return "En Cartera";
     }
@@ -134,6 +267,9 @@ export function CheckManagement() {
   ).length;
   const chequesCobrados = filteredCheques.filter(
     (c) => c.estado === "cobrado",
+  ).length;
+  const chequesImputados = filteredCheques.filter(
+    (c) => c.estado === "imputado",
   ).length;
 
   return (
@@ -187,6 +323,18 @@ export function CheckManagement() {
 
         <Card>
           <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Imputados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {chequesImputados}
+            </div>
+            <p className="text-xs text-gray-500">a deudas</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Cheques</CardTitle>
           </CardHeader>
           <CardContent>
@@ -222,6 +370,7 @@ export function CheckManagement() {
               <option value="all">Todos los estados</option>
               <option value="en-cartera">En Cartera</option>
               <option value="entregado">Entregado</option>
+              <option value="imputado">Imputado</option>
               <option value="cobrado">Cobrado</option>
             </select>
             <Button onClick={() => setShowForm(true)} className="gap-2">
@@ -292,16 +441,32 @@ export function CheckManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditCheque(cheque);
-                          }}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          {cheque.estado === "en-cartera" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCheque(cheque);
+                                setShowImputacionModal(true);
+                              }}
+                              title="Imputar a deuda"
+                            >
+                              <DollarSign className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditCheque(cheque);
+                            }}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -428,6 +593,103 @@ export function CheckManagement() {
                 onClick={() => setShowDetailModal(false)}
               >
                 Cerrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal de imputación */}
+      {selectedCheque && (
+        <Dialog
+          open={showImputacionModal}
+          onOpenChange={setShowImputacionModal}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5" />
+                Imputar Cheque
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  Cheque seleccionado
+                </h3>
+                <p className="text-sm text-blue-700">
+                  Número: {selectedCheque.numero || "Sin número"}
+                </p>
+                <p className="text-sm text-blue-700">
+                  Monto: ${selectedCheque.monto.toFixed(2)}
+                </p>
+                <p className="text-sm text-blue-700">
+                  Emisor: {selectedCheque.emisor}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Seleccionar cliente con deuda pendiente
+                </label>
+                <Select
+                  value={selectedClienteId}
+                  onValueChange={setSelectedClienteId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Elegir cliente..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getClientesConDeuda().map((vehicle) => {
+                      // Calcular deuda total del cliente
+                      const deudaCliente = ordenesTrabajo
+                        .filter(
+                          (orden) =>
+                            orden.cliente === vehicle.cliente &&
+                            orden.saldoPendiente > 0,
+                        )
+                        .reduce((sum, orden) => sum + orden.saldoPendiente, 0);
+
+                      return (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.cliente} - ${deudaCliente.toFixed(2)}{" "}
+                          pendiente
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedClienteId && (
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    Al imputar este cheque, se aplicará el pago a las deudas
+                    pendientes del cliente seleccionado, empezando por las
+                    órdenes más antiguas.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowImputacionModal(false);
+                  setSelectedClienteId("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleImputarCheque}
+                disabled={!selectedClienteId}
+                className="gap-2"
+              >
+                <CheckCircle className="h-4 w-4" />
+                Imputar Cheque
               </Button>
             </DialogFooter>
           </DialogContent>

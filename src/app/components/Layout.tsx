@@ -7,6 +7,7 @@ import {
   CreditCard,
   Droplets,
   Receipt,
+  Shield,
 } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -23,6 +24,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { path: "/cheques", label: "Cheques", icon: CreditCard },
     { path: "/lavados", label: "Lavados", icon: Droplets },
     { path: "/gastos", label: "Gastos", icon: DollarSign },
+    { path: "/gestion-financiera", label: "Finanzas", icon: Shield },
   ];
 
   return (
