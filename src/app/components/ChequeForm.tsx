@@ -42,6 +42,7 @@ export function ChequeForm({
     monto: 0,
     numero: "",
     observaciones: "",
+    clienteId: undefined,
   });
 
   const [clientes, setClientes] = useState<string[]>([]);
@@ -69,6 +70,7 @@ export function ChequeForm({
         monto: initialData.monto,
         numero: initialData.numero || "",
         observaciones: initialData.observaciones || "",
+        clienteId: initialData.clienteId,
       });
     }
   }, [initialData, isOpen]);
@@ -96,6 +98,7 @@ export function ChequeForm({
       monto: 0,
       numero: "",
       observaciones: "",
+      clienteId: undefined,
     });
   };
 
@@ -164,9 +167,26 @@ export function ChequeForm({
               <Label htmlFor="emisor">Emisor (Quién lo entregó)</Label>
               <Select
                 value={formData.emisor}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, emisor: value })
-                }
+                onValueChange={(value) => {
+                  // Si el valor está en la lista de clientes, buscar el id correspondiente
+                  const storedVehicles = localStorage.getItem("vehicles");
+                  let clienteId = undefined;
+                  if (storedVehicles) {
+                    const vehicles = JSON.parse(storedVehicles);
+                    const clienteEncontrado = vehicles.find(
+                      (v: any) => v.cliente === value,
+                    );
+                    if (clienteEncontrado) {
+                      clienteId = clienteEncontrado.id;
+                    }
+                  }
+
+                  setFormData({
+                    ...formData,
+                    emisor: value,
+                    clienteId: clienteId,
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar cliente o ingresar manualmente..." />

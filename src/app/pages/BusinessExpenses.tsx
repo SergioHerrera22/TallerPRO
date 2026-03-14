@@ -34,6 +34,7 @@ import {
   Eye,
   EyeOff,
   MessageCircle,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
@@ -68,7 +69,23 @@ export function BusinessExpenses() {
     if (isAuthenticated) {
       loadData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedMonth]);
+
+  // Escuchar cambios en localStorage para actualizar datos automáticamente
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (
+        e.key === "ordenesTrabajo" ||
+        e.key === "cheques" ||
+        e.key === "vehicles"
+      ) {
+        loadData();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const loadData = () => {
     // Load work orders (ingresos)
@@ -100,6 +117,12 @@ export function BusinessExpenses() {
     if (storedVehicles) {
       setVehicles(JSON.parse(storedVehicles));
     }
+  };
+
+  // Función para recargar datos manualmente
+  const reloadData = () => {
+    loadData();
+    toast.success("Datos actualizados");
   };
 
   const handlePasswordSubmit = () => {
@@ -137,12 +160,9 @@ export function BusinessExpenses() {
     // Filter account debts (negative balances)
     const monthlyDebts = cuentasCorrientes.filter((cuenta) => cuenta.saldo < 0);
 
-    // Filter clients with pending balances
+    // Filter clients with pending balances (todas las órdenes con deuda, no solo del mes)
     const monthlyDeudores = ordenesTrabajo.filter(
-      (orden) =>
-        orden.saldoPendiente > 0 &&
-        new Date(orden.fecha).getFullYear() === parseInt(year) &&
-        new Date(orden.fecha).getMonth() === parseInt(month) - 1,
+      (orden) => orden.saldoPendiente > 0,
     );
 
     // Filter imputed cheques for selected month
@@ -176,11 +196,17 @@ export function BusinessExpenses() {
       0,
     );
 
+    // Obtener clientes únicos con deuda
+    const clientesUnicosConDeuda = [
+      ...new Set(monthlyDeudores.map((orden) => orden.cliente)),
+    ];
+
     return {
       ordenes: monthlyOrdenes,
       expenses: monthlyExpenses,
       debts: monthlyDebts,
       deudores: monthlyDeudores,
+      clientesUnicosConDeuda,
       chequesImputados: monthlyChequesImputados,
       totalIngresos,
       totalIngresosCheques,
@@ -274,12 +300,25 @@ export function BusinessExpenses() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="max-w-xs"
-              />
+              <div className="flex gap-4 items-end">
+                <div>
+                  <Input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="max-w-xs"
+                  />
+                </div>
+                <Button
+                  onClick={reloadData}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Actualizar Datos
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -336,9 +375,12 @@ export function BusinessExpenses() {
                   ${monthlyData.totalDeudores.toFixed(2)}
                 </div>
                 <p className="text-xs opacity-90">
-                  {monthlyData.deudores.length} cliente
-                  {monthlyData.deudores.length !== 1 ? "s" : ""} con deuda
-                  {monthlyData.deudores.length !== 1 ? "s" : ""}
+                  {monthlyData.clientesUnicosConDeuda.length} cliente
+                  {monthlyData.clientesUnicosConDeuda.length !== 1
+                    ? "s"
+                    : ""}{" "}
+                  con deuda
+                  {monthlyData.clientesUnicosConDeuda.length !== 1 ? "s" : ""}
                 </p>
               </CardContent>
             </Card>
