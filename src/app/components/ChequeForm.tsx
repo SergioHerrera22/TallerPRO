@@ -42,7 +42,6 @@ export function ChequeForm({
     monto: 0,
     numero: "",
     observaciones: "",
-    clienteId: undefined,
   });
 
   const [clientes, setClientes] = useState<string[]>([]);
@@ -70,7 +69,18 @@ export function ChequeForm({
         monto: initialData.monto,
         numero: initialData.numero || "",
         observaciones: initialData.observaciones || "",
-        clienteId: initialData.clienteId,
+      });
+    } else if (isOpen) {
+      // Resetear para nuevo cheque
+      setFormData({
+        fechaRecepcion: new Date().toISOString().split("T")[0],
+        fechaCobro: new Date().toISOString().split("T")[0],
+        emisor: "",
+        destino: "",
+        estado: "en-cartera",
+        monto: 0,
+        numero: "",
+        observaciones: "",
       });
     }
   }, [initialData, isOpen]);
@@ -98,7 +108,6 @@ export function ChequeForm({
       monto: 0,
       numero: "",
       observaciones: "",
-      clienteId: undefined,
     });
   };
 
@@ -167,26 +176,9 @@ export function ChequeForm({
               <Label htmlFor="emisor">Emisor (Quién lo entregó)</Label>
               <Select
                 value={formData.emisor}
-                onValueChange={(value) => {
-                  // Si el valor está en la lista de clientes, buscar el id correspondiente
-                  const storedVehicles = localStorage.getItem("vehicles");
-                  let clienteId = undefined;
-                  if (storedVehicles) {
-                    const vehicles = JSON.parse(storedVehicles);
-                    const clienteEncontrado = vehicles.find(
-                      (v: any) => v.cliente === value,
-                    );
-                    if (clienteEncontrado) {
-                      clienteId = clienteEncontrado.id;
-                    }
-                  }
-
-                  setFormData({
-                    ...formData,
-                    emisor: value,
-                    clienteId: clienteId,
-                  });
-                }}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, emisor: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar cliente o ingresar manualmente..." />

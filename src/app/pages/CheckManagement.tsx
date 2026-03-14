@@ -106,6 +106,11 @@ export function CheckManagement() {
     toast.success("Cheque actualizado exitosamente");
   };
 
+  const handleEditCheque = (cheque: Cheque) => {
+    setEditingCheque(cheque);
+    setShowForm(true);
+  };
+
   const handleDeleteCheque = (chequeId: string) => {
     if (confirm("¿Confirmá que querés eliminar este cheque?")) {
       const updated = cheques.filter((c) => c.id !== chequeId);
