@@ -279,11 +279,22 @@ export function VehicleDetail() {
                       <h3 className="font-semibold text-lg">{order.numeroOT}</h3>
                       <p className="text-gray-600">{order.descripcion}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end gap-2">
                       <Badge className={getStatusColor(order.estado)}>
                         {order.estado === "completada" ? "Completada" : order.estado === "en-progreso" ? "En Progreso" : "Pendiente"}
                       </Badge>
-                      <p className="text-lg font-semibold text-green-600 mt-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditOrder(order);
+                        }}
+                        className="p-1 h-8 w-8"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <p className="text-lg font-semibold text-green-600">
                         $
                         {order.monto.toLocaleString("es-AR", {
                           minimumFractionDigits: 2,
@@ -309,11 +320,19 @@ export function VehicleDetail() {
         <OrderForm
           isOpen={showOrderForm}
           onClose={() => setShowOrderForm(false)}
-          onSubmit={handleAddOrder}
+          onSubmit={editingOrder ? handleUpdateOrder : handleAddOrder}
           vehicles={[vehicle]}
           initialData={editingOrder}
         />
       )}
+
+      <OrderDetailModal
+        order={selectedOrder}
+        isOpen={showOrderDetailModal}
+        onClose={() => setShowOrderDetailModal(false)}
+        onEdit={handleEditOrder}
+        onDelete={handleDeleteOrder}
+      />
     </div>
   );
 }

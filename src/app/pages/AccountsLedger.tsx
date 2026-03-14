@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CuentaCorriente, OrdenTrabajo } from "../types";
+import { CuentaCorriente } from "../types";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -17,7 +17,14 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { Search, RefreshCw, Plus } from "lucide-react";
+import {
+  Search,
+  RefreshCw,
+  Plus,
+  Edit2,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -27,131 +34,133 @@ import {
   DialogFooter,
 } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
 export function AccountsLedger() {
   const [cuentas, setCuentas] = useState<CuentaCorriente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [selectedCuenta, setSelectedCuenta] = useState<CuentaCorriente | null>(
+  const [showCuentaDialog, setShowCuentaDialog] = useState(false);
+  const [editingCuenta, setEditingCuenta] = useState<CuentaCorriente | null>(
     null,
   );
-  const [paymentAmount, setPaymentAmount] = useState("");
+  const [formData, setFormData] = useState({
+    entidad: "",
+    tipo: "banco" as "banco" | "proveedor" | "otro",
+    saldo: 0,
+    limiteCredito: 0,
+  });
 
   useEffect(() => {
     loadCuentas();
   }, []);
 
   const loadCuentas = () => {
-    const savedOrders = localStorage.getItem("ordenesTrabajo");
-
-    if (savedOrders) {
-      const orders: OrdenTrabajo[] = JSON.parse(savedOrders);
-
-      // Agrupar órdenes por cliente
-      const clientesMap = new Map<
-        string,
-        { deudora: number; pagada: number }
-      >();
-
-      orders.forEach((order) => {
-        if (!clientesMap.has(order.cliente)) {
-          clientesMap.set(order.cliente, { deudora: 0, pagada: 0 });
+    const saved = localStorage.getItem("cuentasCorrientes");
+    if (saved) {
+      const parsedCuentas = JSON.parse(saved);
+      // Migrar cuentas antiguas que usan 'cliente' en lugar de 'entidad'
+      const migratedCuentas = parsedCuentas.map((cuenta: any) => {
+        if (cuenta.cliente && !cuenta.entidad) {
+          return {
+            ...cuenta,
+            entidad: cuenta.cliente,
+            tipo: cuenta.tipo || "otro",
+            saldo: cuenta.saldoPendiente || cuenta.totalDeudora || 0,
+          };
         }
-
-        const cliente = clientesMap.get(order.cliente)!;
-
-        // Si el estado está completado, se considera pagada, si no, deudora
-        if (order.estado === "completada") {
-          cliente.pagada += order.monto;
-        } else {
-          cliente.deudora += order.monto;
-        }
+        return {
+          ...cuenta,
+          tipo: cuenta.tipo || "otro",
+          saldo: cuenta.saldo || 0,
+        };
       });
-
-      // Convertir map a array de CuentaCorriente
-      const cuentasArray: CuentaCorriente[] = Array.from(
-        clientesMap.entries(),
-      ).map(([cliente, { deudora, pagada }]) => ({
-        id: cliente,
-        cliente,
-        totalDeudora: deudora,
-        totalPagado: pagada,
-        saldoPendiente: deudora,
-        updatedAt: new Date().toISOString(),
-      }));
-
-      setCuentas(cuentasArray);
-      localStorage.setItem("cuentasCorrientes", JSON.stringify(cuentasArray));
+      setCuentas(migratedCuentas);
+      // Guardar las cuentas migradas
+      localStorage.setItem(
+        "cuentasCorrientes",
+        JSON.stringify(migratedCuentas),
+      );
     }
   };
 
-  const handleRefresh = () => {
-    loadCuentas();
-    toast.success("Cuentas actualizadas");
-  };
-
-  const handlePayment = () => {
-    if (!selectedCuenta || !paymentAmount) {
-      toast.error("Ingrese el monto a pagar");
+  const handleSaveCuenta = () => {
+    if (!formData.entidad.trim()) {
+      toast.error("Ingrese el nombre de la entidad");
       return;
     }
 
-    const amount = parseFloat(paymentAmount);
-    if (amount <= 0) {
-      toast.error("El monto debe ser mayor a 0");
-      return;
-    }
+    const cuenta: CuentaCorriente = {
+      id: editingCuenta?.id || Date.now().toString(),
+      entidad: formData.entidad,
+      tipo: formData.tipo,
+      saldo: formData.saldo,
+      limiteCredito:
+        formData.tipo === "proveedor" ? formData.limiteCredito : undefined,
+      updatedAt: new Date().toISOString(),
+    };
 
-    if (amount > selectedCuenta.saldoPendiente) {
-      toast.error("El monto supera el saldo pendiente");
-      return;
+    let updatedCuentas;
+    if (editingCuenta) {
+      updatedCuentas = cuentas.map((c) =>
+        c.id === editingCuenta.id ? cuenta : c,
+      );
+      toast.success("Cuenta actualizada exitosamente");
+    } else {
+      updatedCuentas = [...cuentas, cuenta];
+      toast.success("Cuenta creada exitosamente");
     }
-
-    // Actualizar la cuenta
-    const updatedCuentas = cuentas.map((c) =>
-      c.id === selectedCuenta.id
-        ? {
-            ...c,
-            totalPagado: c.totalPagado + amount,
-            saldoPendiente: c.saldoPendiente - amount,
-            updatedAt: new Date().toISOString(),
-          }
-        : c,
-    );
 
     setCuentas(updatedCuentas);
     localStorage.setItem("cuentasCorrientes", JSON.stringify(updatedCuentas));
 
-    // Guardar el pago en historial
-    const pagos = JSON.parse(localStorage.getItem("pagosRealizados") || "[]");
-    pagos.push({
-      id: Date.now().toString(),
-      cliente: selectedCuenta.cliente,
-      monto: amount,
-      fecha: new Date().toISOString(),
+    setShowCuentaDialog(false);
+    setEditingCuenta(null);
+    setFormData({
+      entidad: "",
+      tipo: "banco",
+      saldo: 0,
+      limiteCredito: 0,
     });
-    localStorage.setItem("pagosRealizados", JSON.stringify(pagos));
+  };
 
-    setPaymentAmount("");
-    setShowPaymentDialog(false);
-    setSelectedCuenta(null);
-    toast.success("Pago registrado exitosamente");
+  const handleEditCuenta = (cuenta: CuentaCorriente) => {
+    setEditingCuenta(cuenta);
+    setFormData({
+      entidad: cuenta.entidad,
+      tipo: cuenta.tipo,
+      saldo: cuenta.saldo,
+      limiteCredito: cuenta.limiteCredito || 0,
+    });
+    setShowCuentaDialog(true);
+  };
+
+  const handleDeleteCuenta = (id: string) => {
+    if (confirm("¿Confirmá que querés eliminar esta cuenta corriente?")) {
+      const updatedCuentas = cuentas.filter((c) => c.id !== id);
+      setCuentas(updatedCuentas);
+      localStorage.setItem("cuentasCorrientes", JSON.stringify(updatedCuentas));
+      toast.success("Cuenta eliminada exitosamente");
+    }
   };
 
   const filteredCuentas = cuentas.filter((cuenta) =>
-    cuenta.cliente.toLowerCase().includes(searchTerm.toLowerCase()),
+    (cuenta.entidad || cuenta.cliente || "")
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()),
   );
 
-  const totalDeudora = filteredCuentas.reduce(
-    (sum, c) => sum + c.totalDeudora,
+  const totalSaldoPositivo = filteredCuentas.reduce(
+    (sum, c) => sum + (c.saldo > 0 ? c.saldo : 0),
     0,
   );
-  const totalPagado = filteredCuentas.reduce(
-    (sum, c) => sum + c.totalPagado,
-    0,
-  );
-  const saldoPendiente = filteredCuentas.reduce(
-    (sum, c) => sum + c.saldoPendiente,
+  const totalSaldoNegativo = filteredCuentas.reduce(
+    (sum, c) => sum + (c.saldo < 0 ? Math.abs(c.saldo) : 0),
     0,
   );
 
@@ -162,82 +171,72 @@ export function AccountsLedger() {
           Cuentas Corrientes
         </h1>
         <p className="text-gray-600">
-          Gestione los saldos y pagos de los clientes
+          Gestione las cuentas que el taller tiene en otras empresas y bancos
         </p>
       </div>
 
       {/* Resumen */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Deudora</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              ${totalDeudora.toFixed(2)}
-            </div>
-            <p className="text-xs text-gray-500">por cobrar</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Pagado</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Saldo Disponible
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              ${totalPagado.toFixed(2)}
+              ${totalSaldoPositivo.toFixed(2)}
             </div>
-            <p className="text-xs text-gray-500">recaudado</p>
+            <p className="text-xs text-gray-500">en bancos y cuentas</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              Saldo Pendiente
+              Deudas Pendientes
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              ${saldoPendiente.toFixed(2)}
+            <div className="text-2xl font-bold text-red-600">
+              ${totalSaldoNegativo.toFixed(2)}
             </div>
-            <p className="text-xs text-gray-500">por cobrar</p>
+            <p className="text-xs text-gray-500">con proveedores</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Clientes Activos
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Cuentas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{filteredCuentas.length}</div>
-            <p className="text-xs text-gray-500">con saldo</p>
+            <div className="text-2xl font-bold">{cuentas.length}</div>
+            <p className="text-xs text-gray-500">cuentas registradas</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros y búsqueda */}
       <Card>
         <CardHeader>
-          <CardTitle>Búsqueda y Filtros</CardTitle>
+          <CardTitle>Filtros y Búsqueda</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar por nombre de cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por nombre de entidad..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <Button onClick={handleRefresh} variant="outline" className="gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Actualizar
+            <Button onClick={() => setShowCuentaDialog(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Nueva Cuenta
             </Button>
           </div>
         </CardContent>
@@ -246,10 +245,10 @@ export function AccountsLedger() {
       {/* Tabla de cuentas */}
       <Card>
         <CardHeader>
-          <CardTitle>Cuentas de Clientes</CardTitle>
+          <CardTitle>Cuentas Corrientes</CardTitle>
           <CardDescription>
-            {filteredCuentas.length} cliente
-            {filteredCuentas.length !== 1 ? "s" : ""} encontrado
+            {filteredCuentas.length} cuenta
+            {filteredCuentas.length !== 1 ? "s" : ""} encontrada
             {filteredCuentas.length !== 1 ? "s" : ""}
           </CardDescription>
         </CardHeader>
@@ -258,10 +257,10 @@ export function AccountsLedger() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead className="text-right">Total Deudora</TableHead>
-                  <TableHead className="text-right">Total Pagado</TableHead>
-                  <TableHead className="text-right">Saldo Pendiente</TableHead>
+                  <TableHead>Entidad</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead className="text-right">Límite Crédito</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -270,29 +269,62 @@ export function AccountsLedger() {
                   filteredCuentas.map((cuenta) => (
                     <TableRow key={cuenta.id}>
                       <TableCell className="font-medium">
-                        {cuenta.cliente}
+                        {cuenta.entidad || cuenta.cliente || "Sin nombre"}
                       </TableCell>
-                      <TableCell className="text-right text-red-600 font-semibold">
-                        ${cuenta.totalDeudora.toFixed(2)}
+                      <TableCell>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            cuenta.tipo === "banco"
+                              ? "bg-blue-100 text-blue-800"
+                              : cuenta.tipo === "proveedor"
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {cuenta.tipo === "banco"
+                            ? "Banco"
+                            : cuenta.tipo === "proveedor"
+                              ? "Proveedor"
+                              : "Otro"}
+                        </span>
                       </TableCell>
-                      <TableCell className="text-right text-green-600 font-semibold">
-                        ${cuenta.totalPagado.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right text-orange-600 font-semibold">
-                        ${cuenta.saldoPendiente.toFixed(2)}
+                      <TableCell
+                        className={`text-right font-semibold ${
+                          cuenta.saldo >= 0 ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          {cuenta.saldo >= 0 ? (
+                            <TrendingUp className="h-4 w-4" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4" />
+                          )}
+                          ${Math.abs(cuenta.saldo).toFixed(2)}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setSelectedCuenta(cuenta);
-                            setShowPaymentDialog(true);
-                          }}
-                          disabled={cuenta.saldoPendiente === 0}
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Registrar Pago
-                        </Button>
+                        {cuenta.limiteCredito
+                          ? `$${cuenta.limiteCredito.toFixed(2)}`
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditCuenta(cuenta)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteCuenta(cuenta.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -311,67 +343,98 @@ export function AccountsLedger() {
         </CardContent>
       </Card>
 
-      {/* Modal de pago */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+      {/* Modal de cuenta */}
+      <Dialog open={showCuentaDialog} onOpenChange={setShowCuentaDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registrar Pago</DialogTitle>
+            <DialogTitle>
+              {editingCuenta ? "Editar Cuenta" : "Nueva Cuenta Corriente"}
+            </DialogTitle>
           </DialogHeader>
 
-          {selectedCuenta && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600">Cliente</p>
-                <p className="font-semibold text-lg">
-                  {selectedCuenta.cliente}
-                </p>
-              </div>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="entidad">Nombre de la Entidad *</Label>
+              <Input
+                id="entidad"
+                placeholder="Ej: Banco Nación, Repuestos XYZ"
+                value={formData.entidad}
+                onChange={(e) =>
+                  setFormData({ ...formData, entidad: e.target.value })
+                }
+              />
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Total Deudora</p>
-                  <p className="font-semibold text-red-600">
-                    ${selectedCuenta.totalDeudora.toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Saldo Pendiente</p>
-                  <p className="font-semibold text-orange-600">
-                    ${selectedCuenta.saldoPendiente.toFixed(2)}
-                  </p>
-                </div>
-              </div>
+            <div>
+              <Label htmlFor="tipo">Tipo de Cuenta *</Label>
+              <Select
+                value={formData.tipo}
+                onValueChange={(value: "banco" | "proveedor" | "otro") =>
+                  setFormData({ ...formData, tipo: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="banco">Banco</SelectItem>
+                  <SelectItem value="proveedor">Proveedor</SelectItem>
+                  <SelectItem value="otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
+            <div>
+              <Label htmlFor="saldo">Saldo Actual</Label>
+              <Input
+                id="saldo"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={formData.saldo}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    saldo: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Positivo: dinero disponible, Negativo: deuda pendiente
+              </p>
+            </div>
+
+            {formData.tipo === "proveedor" && (
               <div>
-                <Label htmlFor="monto">Monto a Pagar *</Label>
+                <Label htmlFor="limiteCredito">Límite de Crédito</Label>
                 <Input
+                  id="limiteCredito"
                   type="number"
                   step="0.01"
-                  min="0"
-                  max={selectedCuenta.saldoPendiente}
                   placeholder="0.00"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  value={formData.limiteCredito}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      limiteCredito: parseFloat(e.target.value) || 0,
+                    })
+                  }
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Máximo: ${selectedCuenta.saldoPendiente.toFixed(2)}
-                </p>
               </div>
+            )}
+          </div>
 
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowPaymentDialog(false);
-                    setPaymentAmount("");
-                  }}
-                >
-                  Cancelar
-                </Button>
-                <Button onClick={handlePayment}>Registrar Pago</Button>
-              </DialogFooter>
-            </div>
-          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCuentaDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveCuenta}>
+              {editingCuenta ? "Actualizar" : "Crear"} Cuenta
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -52,10 +52,10 @@ export interface OrdenTrabajo {
 
 export interface CuentaCorriente {
   id: string;
-  cliente: string;
-  totalDeudora: number;
-  totalPagado: number;
-  saldoPendiente: number;
+  entidad: string; // Nombre de la empresa/banco/proveedor
+  tipo: "banco" | "proveedor" | "otro";
+  saldo: number; // Positivo: dinero disponible, Negativo: deuda
+  limiteCredito?: number; // Para proveedores
   updatedAt: string;
 }
 
