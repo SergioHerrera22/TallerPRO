@@ -1,5 +1,5 @@
-import { supabase } from "../supabaseClient";
-import { db } from "../dexieDB";
+import { supabase } from "../lib/supabase.js";
+import { db } from "../db.ts";
 
 export async function pullFromSupabase() {
   console.log("Descargando datos...");
