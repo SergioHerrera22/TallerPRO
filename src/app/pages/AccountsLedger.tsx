@@ -48,6 +48,24 @@ import { Textarea } from "../components/ui/textarea";
 import { createId } from "../../utils";
 
 export function AccountsLedger() {
+  // Eliminar gasto de proveedor
+  const handleDeleteGasto = async (cuentaId: string, gastoId: string) => {
+    const cuenta = cuentas.find((c) => c.id === cuentaId);
+    if (!cuenta) return;
+    const gastosActuales = cuenta.gastos || [];
+    const gastoAEliminar = gastosActuales.find((g) => g.id === gastoId);
+    if (!gastoAEliminar) return;
+    const nuevosGastos = gastosActuales.filter((g) => g.id !== gastoId);
+    const cuentaActualizada: CuentaCorriente = {
+      ...cuenta,
+      gastos: nuevosGastos,
+      saldo: cuenta.saldo + gastoAEliminar.total,
+      updatedAt: new Date().toISOString(),
+    };
+    await db.cuentasCorrientes.put(cuentaActualizada);
+    toast.success("Gasto eliminado correctamente");
+    await loadCuentas();
+  };
   const [cuentas, setCuentas] = useState<CuentaCorriente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTipo, setFilterTipo] = useState<string>("all");
@@ -207,13 +225,8 @@ export function AccountsLedger() {
   };
 
   const filteredCuentas = cuentas.filter((cuenta) => {
-    const matchesSearch = cuenta.entidad
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-
-    const matchesTipo = filterTipo === "all" || cuenta.tipo === filterTipo;
-
-    return matchesSearch && matchesTipo;
+    // Solo mostrar cuentas corrientes (proveedores)
+    return cuenta.tipo === "proveedor";
   });
 
   const totalSaldoNegativo = filteredCuentas.reduce(
@@ -232,29 +245,33 @@ export function AccountsLedger() {
         </p>
       </div>
 
-      {/* Resumen */}
+      {/* Resumen solo de cuentas corrientes (proveedores) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              Deudas Pendientes
+              Deuda con Proveedores
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              ${totalSaldoNegativo.toFixed(2)}
+              $
+              {filteredCuentas
+                .reduce((sum, c) => sum + Math.abs(c.saldo), 0)
+                .toFixed(2)}
             </div>
-            <p className="text-xs text-gray-500">con proveedores</p>
+            <p className="text-xs text-gray-500">Total de gastos registrados</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Cuentas</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Cuentas Corrientes
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{cuentas.length}</div>
-            <p className="text-xs text-gray-500">cuentas registradas</p>
+            <div className="text-2xl font-bold">{filteredCuentas.length}</div>
+            <p className="text-xs text-gray-500">proveedores registrados</p>
           </CardContent>
         </Card>
       </div>
@@ -632,6 +649,19 @@ export function AccountsLedger() {
                           </TableCell>
                           <TableCell className="text-right font-semibold">
                             ${gasto.total.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() =>
+                                handleDeleteGasto(selectedCuenta.id, gasto.id)
+                              }
+                              title="Eliminar gasto"
+                            >
+                              Eliminar
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}

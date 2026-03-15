@@ -23,7 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { path: "/cuentas", label: "Cuentas", icon: Receipt },
     { path: "/cheques", label: "Cheques", icon: CreditCard },
     { path: "/lavados", label: "Lavados", icon: Droplets },
-    { path: "/gastos", label: "Gastos", icon: DollarSign },
+
     { path: "/gestion-financiera", label: "Finanzas", icon: Shield },
   ];
 

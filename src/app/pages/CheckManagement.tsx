@@ -133,6 +133,53 @@ export function CheckManagement() {
   const handleImputarCheque = async () => {
     if (!selectedCheque || !selectedClienteId) return;
 
+    // Detectar si el destino es una empresa de cuentas corrientes
+    const destinoCheque = selectedCheque.destino;
+    const cuentasCorrientes = JSON.parse(
+      localStorage.getItem("cuentasCorrientes") || "[]",
+    );
+    const empresaSeleccionada = cuentasCorrientes.find(
+      (c: any) => c.entidad === destinoCheque,
+    );
+
+    if (empresaSeleccionada) {
+      // Es una empresa, descontar deuda
+      empresaSeleccionada.saldo =
+        parseFloat(empresaSeleccionada.saldo) -
+        parseFloat(selectedCheque.monto);
+      empresaSeleccionada.updatedAt = new Date().toISOString();
+      // Actualizar en localStorage y en la base de datos
+      localStorage.setItem(
+        "cuentasCorrientes",
+        JSON.stringify(cuentasCorrientes),
+      );
+      if (empresaSeleccionada.id) {
+        await db.cuentasCorrientes.put(empresaSeleccionada);
+      }
+      // Actualizar cheque
+      const updatedCheques = cheques.map((cheque) =>
+        cheque.id === selectedCheque.id
+          ? {
+              ...cheque,
+              estado: "imputado" as const,
+              fechaImputacion: new Date().toISOString(),
+              observaciones:
+                `${cheque.observaciones || ""} Imputado a empresa ${empresaSeleccionada.entidad}`.trim(),
+            }
+          : cheque,
+      );
+      await db.cheques.bulkPut(updatedCheques);
+      setCheques(updatedCheques);
+      setShowImputacionModal(false);
+      setSelectedClienteId("");
+      setShowDetailModal(false);
+      toast.success(
+        `Cheque imputado exitosamente a empresa ${empresaSeleccionada.entidad}`,
+      );
+      return;
+    }
+
+    // Si no es empresa, seguir con la lógica de cliente
     const clienteSeleccionado = vehicles.find(
       (v) => v.id === selectedClienteId,
     );

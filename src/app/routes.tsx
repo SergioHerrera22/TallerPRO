@@ -2,7 +2,6 @@ import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
 import { VehicleDetail } from "./pages/VehicleDetail";
-import { Expenses } from "./pages/Expenses";
 import { BusinessExpenses } from "./pages/BusinessExpenses";
 import { WorkOrders } from "./pages/WorkOrders";
 import { AccountsLedger } from "./pages/AccountsLedger";
@@ -21,14 +20,6 @@ function VehicleDetailPage() {
   return (
     <Layout>
       <VehicleDetail />
-    </Layout>
-  );
-}
-
-function ExpensesPage() {
-  return (
-    <Layout>
-      <Expenses />
     </Layout>
   );
 }
@@ -78,10 +69,7 @@ export const router = createBrowserRouter([
     path: "/vehiculo/:id",
     Component: VehicleDetailPage,
   },
-  {
-    path: "/gastos",
-    Component: ExpensesPage,
-  },
+
   {
     path: "/gestion-financiera",
     Component: BusinessExpensesPage,

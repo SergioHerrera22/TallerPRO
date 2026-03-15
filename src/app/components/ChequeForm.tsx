@@ -10,6 +10,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectLabel,
+  SelectGroup,
 } from "./ui/select";
 import {
   Dialog,
@@ -46,6 +48,7 @@ export function ChequeForm({
   });
 
   const [clientes, setClientes] = useState<string[]>([]);
+  const [empresas, setEmpresas] = useState<string[]>([]);
 
   useEffect(() => {
     // Cargar lista de clientes únicos de los vehículos registrados
@@ -57,6 +60,18 @@ export function ChequeForm({
       ].sort();
       setClientes(clientesUnicos);
     }
+    // Cargar proveedores desde la base de datos
+    const cargarProveedores = async () => {
+      if (window.db && window.db.cuentasCorrientes) {
+        const cuentas = await window.db.cuentasCorrientes.toArray();
+        const proveedores = cuentas
+          .filter((c: any) => c.tipo === "proveedor")
+          .map((c: any) => c.entidad);
+        const proveedoresUnicos = [...new Set(proveedores)].sort();
+        setEmpresas(proveedoresUnicos);
+      }
+    };
+    cargarProveedores();
   }, []);
 
   useEffect(() => {
@@ -165,55 +180,64 @@ export function ChequeForm({
 
             <div>
               <Label htmlFor="emisor">Emisor (Quién lo entregó)</Label>
-              <Select
+              <Input
+                list="clientes-list"
+                placeholder="Buscar o escribir nombre de cliente..."
                 value={formData.emisor}
-                onValueChange={(value) => {
-                  // Si el valor está en la lista de clientes, buscar el id correspondiente
-                  const storedVehicles = localStorage.getItem("vehicles");
-                  let clienteId = undefined;
-                  if (storedVehicles) {
-                    const vehicles = JSON.parse(storedVehicles);
-                    const clienteEncontrado = vehicles.find(
-                      (v: any) => v.cliente === value,
-                    );
-                    if (clienteEncontrado) {
-                      clienteId = clienteEncontrado.id;
-                    }
-                  }
-
-                  setFormData({
-                    ...formData,
-                    emisor: value,
-                    clienteId: clienteId,
-                  });
+                onChange={(e) => {
+                  setFormData({ ...formData, emisor: e.target.value });
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar cliente o ingresar manualmente..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {clientes.map((cliente) => (
-                    <SelectItem key={cliente} value={cliente}>
-                      {cliente}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
+              <datalist id="clientes-list">
+                {clientes.map((cliente) => (
+                  <option key={cliente} value={cliente} />
+                ))}
+              </datalist>
               <p className="text-xs text-gray-500 mt-1">
-                Selecciona un cliente registrado o deja vacío para ingresar
-                manualmente
+                Escribe o selecciona un cliente registrado
               </p>
             </div>
 
             <div>
               <Label htmlFor="destino">Destino (A quién lo entregué) *</Label>
-              <Input
-                placeholder="Nombre del beneficiario"
-                value={formData.destino}
-                onChange={(e) =>
-                  setFormData({ ...formData, destino: e.target.value })
-                }
-              />
+              {empresas.length === 0 ? (
+                <>
+                  <Select disabled value="">
+                    <SelectTrigger>
+                      <SelectValue placeholder="No hay proveedores registrados" />
+                    </SelectTrigger>
+                  </Select>
+                  <p className="text-xs text-red-500 mt-1">
+                    No hay proveedores registrados en cuentas corrientes.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Select
+                    value={formData.destino}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, destino: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar proveedor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Proveedores</SelectLabel>
+                        {empresas.map((proveedor) => (
+                          <SelectItem key={proveedor} value={proveedor}>
+                            {proveedor}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selecciona un proveedor registrado
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="col-span-2">

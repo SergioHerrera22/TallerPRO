@@ -3,6 +3,7 @@ import { router } from "./routes";
 import { Toaster } from "./components/ui/sonner";
 import { useEffect } from "react";
 import { syncAll } from "../services/syncService";
+
 export default function App() {
   useEffect(() => {
     // sincronizar al iniciar
