@@ -3,10 +3,12 @@ import { router } from "./routes";
 import { Toaster } from "./components/ui/sonner";
 import { useEffect } from "react";
 import { syncAll } from "../services/syncService";
+import { pullFromSupabase } from "../services/pullService";
 
 export default function App() {
   useEffect(() => {
     // sincronizar al iniciar
+    pullFromSupabase();
     syncAll();
 
     // sincronizar cada 1 minuto
