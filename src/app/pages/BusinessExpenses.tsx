@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { db } from "../../db";
+
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -8,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+
 import {
   Table,
   TableBody,
@@ -16,13 +19,16 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
+
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+
 import { Label } from "../components/ui/label";
+
 import {
   TrendingUp,
   TrendingDown,
@@ -36,13 +42,14 @@ import {
   MessageCircle,
   RefreshCw,
 } from "lucide-react";
+
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
+
 import {
   OrdenTrabajo,
   Expense,
   CuentaCorriente,
-  GastoProveedor,
   Cheque,
   Vehicle,
 } from "../types";
@@ -53,7 +60,6 @@ export function BusinessExpenses() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(true);
 
-  // Data states
   const [ordenesTrabajo, setOrdenesTrabajo] = useState<OrdenTrabajo[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cuentasCorrientes, setCuentasCorrientes] = useState<CuentaCorriente[]>(
@@ -61,6 +67,7 @@ export function BusinessExpenses() {
   );
   const [cheques, setCheques] = useState<Cheque[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7),
   );
@@ -71,62 +78,34 @@ export function BusinessExpenses() {
     }
   }, [isAuthenticated, selectedMonth]);
 
-  // Escuchar cambios en localStorage para actualizar datos automáticamente
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (
-        e.key === "ordenesTrabajo" ||
-        e.key === "cheques" ||
-        e.key === "vehicles"
-      ) {
-        loadData();
-      }
-    };
+  const loadData = async () => {
+    try {
+      const [ordenes, gastos, cuentas, chequesDB, vehiculos] =
+        await Promise.all([
+          db.ordenesTrabajo.toArray(),
+          db.expenses.toArray(),
+          db.cuentasCorrientes.toArray(),
+          db.cheques.toArray(),
+          db.vehicles.toArray(),
+        ]);
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  const loadData = () => {
-    // Load work orders (ingresos)
-    const storedOrdenes = localStorage.getItem("ordenesTrabajo");
-    if (storedOrdenes) {
-      setOrdenesTrabajo(JSON.parse(storedOrdenes));
-    }
-
-    // Load expenses (egresos)
-    const storedExpenses = localStorage.getItem("expenses");
-    if (storedExpenses) {
-      setExpenses(JSON.parse(storedExpenses));
-    }
-
-    // Load accounts (deudas)
-    const storedCuentas = localStorage.getItem("cuentasCorrientes");
-    if (storedCuentas) {
-      setCuentasCorrientes(JSON.parse(storedCuentas));
-    }
-
-    // Load cheques (ingresos adicionales)
-    const storedCheques = localStorage.getItem("cheques");
-    if (storedCheques) {
-      setCheques(JSON.parse(storedCheques));
-    }
-
-    // Load vehicles (para obtener nombres de clientes)
-    const storedVehicles = localStorage.getItem("vehicles");
-    if (storedVehicles) {
-      setVehicles(JSON.parse(storedVehicles));
+      setOrdenesTrabajo(ordenes);
+      setExpenses(gastos);
+      setCuentasCorrientes(cuentas);
+      setCheques(chequesDB);
+      setVehicles(vehiculos);
+    } catch (error) {
+      console.error(error);
+      toast.error("Error cargando datos");
     }
   };
 
-  // Función para recargar datos manualmente
-  const reloadData = () => {
-    loadData();
+  const reloadData = async () => {
+    await loadData();
     toast.success("Datos actualizados");
   };
 
   const handlePasswordSubmit = () => {
-    // Simple password check - in production, this should be more secure
     if (password === "taller2024") {
       setIsAuthenticated(true);
       setShowPasswordDialog(false);
@@ -139,64 +118,65 @@ export function BusinessExpenses() {
   const getMonthlyData = () => {
     const [year, month] = selectedMonth.split("-");
 
-    // Filter work orders for selected month
     const monthlyOrdenes = ordenesTrabajo.filter((orden) => {
-      const ordenDate = new Date(orden.fecha);
+      const date = new Date(orden.fecha);
+
       return (
-        ordenDate.getFullYear() === parseInt(year) &&
-        ordenDate.getMonth() === parseInt(month) - 1
+        date.getFullYear() === Number(year) &&
+        date.getMonth() === Number(month) - 1
       );
     });
 
-    // Filter expenses for selected month
     const monthlyExpenses = expenses.filter((expense) => {
-      const expenseDate = new Date(expense.fecha);
+      const date = new Date(expense.fecha);
+
       return (
-        expenseDate.getFullYear() === parseInt(year) &&
-        expenseDate.getMonth() === parseInt(month) - 1
+        date.getFullYear() === Number(year) &&
+        date.getMonth() === Number(month) - 1
       );
     });
 
-    // Filter account debts (negative balances)
     const monthlyDebts = cuentasCorrientes.filter((cuenta) => cuenta.saldo < 0);
 
-    // Filter clients with pending balances (todas las órdenes con deuda, no solo del mes)
     const monthlyDeudores = ordenesTrabajo.filter(
       (orden) => orden.saldoPendiente > 0,
     );
 
-    // Filter imputed cheques for selected month
     const monthlyChequesImputados = cheques.filter((cheque) => {
       if (cheque.estado !== "imputado" || !cheque.fechaImputacion) return false;
-      const chequeDate = new Date(cheque.fechaImputacion);
+
+      const date = new Date(cheque.fechaImputacion);
+
       return (
-        chequeDate.getFullYear() === parseInt(year) &&
-        chequeDate.getMonth() === parseInt(month) - 1
+        date.getFullYear() === Number(year) &&
+        date.getMonth() === Number(month) - 1
       );
     });
 
-    // Calculate totals
     const totalIngresos = monthlyOrdenes.reduce(
       (sum, orden) => sum + orden.monto,
       0,
     );
+
     const totalIngresosCheques = monthlyChequesImputados.reduce(
       (sum, cheque) => sum + cheque.monto,
       0,
     );
+
     const totalEgresos = monthlyExpenses.reduce(
       (sum, expense) => sum + expense.total,
       0,
     );
+
     const totalDeudas = Math.abs(
       monthlyDebts.reduce((sum, cuenta) => sum + cuenta.saldo, 0),
     );
+
     const totalDeudores = monthlyDeudores.reduce(
       (sum, orden) => sum + orden.saldoPendiente,
       0,
     );
 
-    // Obtener clientes únicos con deuda
     const clientesUnicosConDeuda = [
       ...new Set(monthlyDeudores.map((orden) => orden.cliente)),
     ];
@@ -221,55 +201,36 @@ export function BusinessExpenses() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <Dialog open={showPasswordDialog} onOpenChange={() => {}}>
-          <DialogContent className="max-w-md">
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+              <DialogTitle className="flex gap-2 items-center">
                 <Lock className="h-5 w-5" />
                 Acceso Restringido
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Esta página contiene información financiera confidencial del
-                taller. Ingrese la contraseña para continuar.
-              </p>
+              <Label>Contraseña</Label>
 
-              <div>
-                <Label htmlFor="password">Contraseña</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyPress={(e) =>
-                      e.key === "Enter" && handlePasswordSubmit()
-                    }
-                    placeholder="Ingrese la contraseña"
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2"
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </button>
               </div>
-            </div>
 
-            <div className="flex gap-2">
-              <Button onClick={handlePasswordSubmit} className="flex-1">
-                Acceder
-              </Button>
+              <Button onClick={handlePasswordSubmit}>Acceder</Button>
             </div>
           </DialogContent>
         </Dialog>

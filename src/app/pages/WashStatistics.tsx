@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { OrdenTrabajo } from "../types";
+import { db } from "../../db";
+
 import {
   Card,
   CardContent,
@@ -7,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+
 import {
   Table,
   TableBody,
@@ -15,73 +18,74 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
+
 import { Badge } from "../components/ui/badge";
-import { Droplets, TrendingUp, Calendar } from "lucide-react";
+import { Droplets, Calendar } from "lucide-react";
 
 export function WashStatistics() {
   const [orders, setOrders] = useState<OrdenTrabajo[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<
     Array<{ month: string; count: number }>
   >([]);
+
   const [currentMonthWashes, setCurrentMonthWashes] = useState(0);
 
   useEffect(() => {
     loadStatistics();
   }, []);
 
-  const loadStatistics = () => {
-    const saved = localStorage.getItem("ordenesTrabajo");
-    if (saved) {
-      const allOrders: OrdenTrabajo[] = JSON.parse(saved);
-      setOrders(allOrders);
+  const loadStatistics = async () => {
+    const allOrders = await db.ordenesTrabajo.toArray();
 
-      // Filtrar solo órdenes con lavado
-      const washOrders = allOrders.filter((o) => o.lavado);
+    setOrders(allOrders);
 
-      // Obtener mes actual
-      const now = new Date();
-      const currentMonth = `${now.getFullYear()}-${String(
-        now.getMonth() + 1,
-      ).padStart(2, "0")}`;
+    const washOrders = allOrders.filter((o) => o.lavado);
 
-      // Calcular lavados del mes actual
-      const thisMonthWashes = washOrders.filter((o) => {
-        const orderMonth = o.fecha.substring(0, 7);
-        return orderMonth === currentMonth;
-      });
+    const now = new Date();
 
-      setCurrentMonthWashes(thisMonthWashes.length);
+    const currentMonth = `${now.getFullYear()}-${String(
+      now.getMonth() + 1,
+    ).padStart(2, "0")}`;
 
-      // Generar estadísticas mensuales
-      const monthMap = new Map<string, { count: number }>();
+    const thisMonthWashes = washOrders.filter((o) => {
+      const orderMonth = o.fecha.substring(0, 7);
 
-      washOrders.forEach((order) => {
-        const month = order.fecha.substring(0, 7);
-        if (!monthMap.has(month)) {
-          monthMap.set(month, { count: 0 });
-        }
+      return orderMonth === currentMonth;
+    });
 
-        const stats = monthMap.get(month)!;
-        stats.count++;
-      });
+    setCurrentMonthWashes(thisMonthWashes.length);
 
-      // Convertir a array y ordenar
-      const stats = Array.from(monthMap.entries())
-        .map(([month, { count }]) => ({
-          month,
-          count,
-        }))
-        .sort((a, b) => b.month.localeCompare(a.month));
+    const monthMap = new Map<string, { count: number }>();
 
-      setMonthlyStats(stats);
-    }
+    washOrders.forEach((order) => {
+      const month = order.fecha.substring(0, 7);
+
+      if (!monthMap.has(month)) {
+        monthMap.set(month, { count: 0 });
+      }
+
+      const stats = monthMap.get(month)!;
+
+      stats.count++;
+    });
+
+    const stats = Array.from(monthMap.entries())
+      .map(([month, { count }]) => ({
+        month,
+        count,
+      }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+
+    setMonthlyStats(stats);
   };
 
   const washOrders = orders.filter((o) => o.lavado);
+
   const totalWashes = washOrders.length;
 
   const formatMonth = (monthStr: string): string => {
     const [year, month] = monthStr.split("-");
+
     const months = [
       "Enero",
       "Febrero",
@@ -96,6 +100,7 @@ export function WashStatistics() {
       "Noviembre",
       "Diciembre",
     ];
+
     return `${months[parseInt(month) - 1]} ${year}`;
   };
 

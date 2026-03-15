@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { Cheque, OrdenTrabajo, Vehicle } from "../types";
+import { db } from "../../db";
+
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+
 import {
   Card,
   CardContent,
@@ -9,7 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+
 import { Badge } from "../components/ui/badge";
+
 import {
   Table,
   TableBody,
@@ -18,7 +23,9 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
+
 import { ChequeForm } from "../components/ChequeForm";
+
 import {
   Plus,
   Search,
@@ -27,7 +34,9 @@ import {
   CheckCircle,
   DollarSign,
 } from "lucide-react";
+
 import { toast } from "sonner";
+
 import {
   Dialog,
   DialogContent,
@@ -35,6 +44,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../components/ui/dialog";
+
 import {
   Select,
   SelectContent,
@@ -60,75 +70,78 @@ export function CheckManagement() {
     loadCheques();
   }, []);
 
-  const loadCheques = () => {
-    const saved = localStorage.getItem("cheques");
-    if (saved) {
-      setCheques(JSON.parse(saved));
-    }
+  const loadCheques = async () => {
+    const chequesDB = await db.cheques.toArray();
+    const ordenesDB = await db.ordenesTrabajo.toArray();
+    const vehiclesDB = await db.vehicles.toArray();
 
-    const savedOrdenes = localStorage.getItem("ordenesTrabajo");
-    if (savedOrdenes) {
-      setOrdenesTrabajo(JSON.parse(savedOrdenes));
-    }
-
-    const savedVehicles = localStorage.getItem("vehicles");
-    if (savedVehicles) {
-      setVehicles(JSON.parse(savedVehicles));
-    }
+    setCheques(chequesDB);
+    setOrdenesTrabajo(ordenesDB);
+    setVehicles(vehiclesDB);
   };
 
-  const handleCreateCheque = (data: Omit<Cheque, "id" | "createdAt">) => {
+  const handleCreateCheque = async (data: Omit<Cheque, "id" | "createdAt">) => {
     const newCheque: Cheque = {
       ...data,
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
 
-    const updated = [...cheques, newCheque];
-    localStorage.setItem("cheques", JSON.stringify(updated));
-    setCheques(updated);
+    await db.cheques.add(newCheque);
+
+    setCheques([...cheques, newCheque]);
     setShowForm(false);
     setEditingCheque(undefined);
+
     toast.success("Cheque registrado exitosamente");
   };
 
-  const handleUpdateCheque = (data: Omit<Cheque, "id" | "createdAt">) => {
+  const handleUpdateCheque = async (data: Omit<Cheque, "id" | "createdAt">) => {
     if (!editingCheque) return;
 
+    const updatedCheque = {
+      ...editingCheque,
+      ...data,
+    };
+
+    await db.cheques.put(updatedCheque);
+
     const updated = cheques.map((c) =>
-      c.id === editingCheque.id ? { ...c, ...data } : c,
+      c.id === editingCheque.id ? updatedCheque : c,
     );
 
-    localStorage.setItem("cheques", JSON.stringify(updated));
     setCheques(updated);
     setShowForm(false);
     setEditingCheque(undefined);
+
     toast.success("Cheque actualizado exitosamente");
   };
 
-  const handleDeleteCheque = (chequeId: string) => {
+  const handleDeleteCheque = async (chequeId: string) => {
     if (confirm("¿Confirmá que querés eliminar este cheque?")) {
+      await db.cheques.delete(chequeId);
+
       const updated = cheques.filter((c) => c.id !== chequeId);
-      localStorage.setItem("cheques", JSON.stringify(updated));
       setCheques(updated);
+
       setShowDetailModal(false);
+
       toast.success("Cheque eliminado exitosamente");
     }
   };
 
-  const handleImputarCheque = () => {
+  const handleImputarCheque = async () => {
     if (!selectedCheque || !selectedClienteId) return;
 
-    // Buscar el cliente seleccionado
     const clienteSeleccionado = vehicles.find(
       (v) => v.id === selectedClienteId,
     );
+
     if (!clienteSeleccionado) {
       toast.error("Cliente no encontrado");
       return;
     }
 
-    // Obtener todas las órdenes del cliente con deuda pendiente, ordenadas por fecha (más antiguas primero)
     const ordenesClienteConDeuda = ordenesTrabajo
       .filter(
         (orden) =>
@@ -144,7 +157,6 @@ export function CheckManagement() {
       return;
     }
 
-    // Calcular deuda total del cliente
     const deudaTotalCliente = ordenesClienteConDeuda.reduce(
       (sum, orden) => sum + orden.saldoPendiente,
       0,
@@ -152,13 +164,17 @@ export function CheckManagement() {
 
     if (selectedCheque.monto > deudaTotalCliente) {
       toast.error(
-        `El monto del cheque ($${selectedCheque.monto.toFixed(2)}) excede la deuda total del cliente ($${deudaTotalCliente.toFixed(2)})`,
+        `El monto del cheque ($${selectedCheque.monto.toFixed(
+          2,
+        )}) excede la deuda total del cliente ($${deudaTotalCliente.toFixed(
+          2,
+        )})`,
       );
       return;
     }
 
-    // Aplicar el pago distribuyéndolo entre las órdenes (empezando por la más antigua)
     let montoRestante = selectedCheque.monto;
+
     const updatedOrdenes = ordenesTrabajo.map((orden) => {
       if (
         orden.cliente === clienteSeleccionado.cliente &&
@@ -166,6 +182,7 @@ export function CheckManagement() {
         montoRestante > 0
       ) {
         const pagoAplicado = Math.min(montoRestante, orden.saldoPendiente);
+
         montoRestante -= pagoAplicado;
 
         return {
@@ -174,10 +191,10 @@ export function CheckManagement() {
           saldoPendiente: orden.saldoPendiente - pagoAplicado,
         };
       }
+
       return orden;
     });
 
-    // Actualizar el cheque
     const updatedCheques = cheques.map((cheque) =>
       cheque.id === selectedCheque.id
         ? {
@@ -185,21 +202,19 @@ export function CheckManagement() {
             estado: "imputado" as const,
             clienteId: selectedClienteId,
             fechaImputacion: new Date().toISOString(),
-            observaciones:
-              `${cheque.observaciones || ""} Imputado a cliente ${clienteSeleccionado.cliente}`.trim(),
+            observaciones: `${
+              cheque.observaciones || ""
+            } Imputado a cliente ${clienteSeleccionado.cliente}`.trim(),
           }
         : cheque,
     );
 
-    // Guardar en localStorage
-    localStorage.setItem("cheques", JSON.stringify(updatedCheques));
-    localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedOrdenes));
+    await db.cheques.bulkPut(updatedCheques);
+    await db.ordenesTrabajo.bulkPut(updatedOrdenes);
 
-    // Actualizar estado
     setCheques(updatedCheques);
     setOrdenesTrabajo(updatedOrdenes);
 
-    // Cerrar modal y limpiar
     setShowImputacionModal(false);
     setSelectedClienteId("");
     setShowDetailModal(false);
@@ -210,7 +225,6 @@ export function CheckManagement() {
   };
 
   const getClientesConDeuda = () => {
-    // Obtener clientes únicos que tienen deudas pendientes
     const clientesConDeuda = new Set<string>();
 
     ordenesTrabajo.forEach((orden) => {
@@ -219,7 +233,6 @@ export function CheckManagement() {
       }
     });
 
-    // Retornar los vehicles de esos clientes
     return vehicles.filter((vehicle) => clientesConDeuda.has(vehicle.cliente));
   };
 
@@ -271,6 +284,11 @@ export function CheckManagement() {
   const chequesImputados = filteredCheques.filter(
     (c) => c.estado === "imputado",
   ).length;
+
+  const handleEditCheque = (cheque: Cheque) => {
+    setEditingCheque(cheque);
+    setShowForm(true);
+  };
 
   return (
     <div className="px-4 sm:px-0 space-y-6">

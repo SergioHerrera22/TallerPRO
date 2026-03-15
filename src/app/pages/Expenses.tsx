@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Expense } from "../types";
+import { db } from "../../db";
+
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -8,7 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+
 import { ExpenseForm } from "../components/ExpenseForm";
+
 import { Plus, TrendingDown, Calendar, Tag, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,38 +25,34 @@ export function Expenses() {
     loadExpenses();
   }, []);
 
-  const loadExpenses = () => {
-    const stored = localStorage.getItem("expenses");
-    if (stored) {
-      const allExpenses: Expense[] = JSON.parse(stored);
-      // ensure numeric fields are numbers in state
-      const normalized = allExpenses.map((e) => ({
-        ...e,
-        monto: Number(e.monto),
-        iva: Number(e.iva),
-        total: Number(e.total),
-      }));
-      setExpenses(
-        normalized.sort(
-          (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
-        ),
-      );
-    }
+  const loadExpenses = async () => {
+    const allExpenses = await db.expenses.toArray();
+
+    const normalized = allExpenses.map((e) => ({
+      ...e,
+      monto: Number(e.monto),
+      iva: Number(e.iva),
+      total: Number(e.total),
+    }));
+
+    setExpenses(
+      normalized.sort(
+        (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+      ),
+    );
   };
 
-  const handleAddExpense = (expenseData: Omit<Expense, "id">) => {
+  const handleAddExpense = async (expenseData: Omit<Expense, "id">) => {
     const newExpense: Expense = {
       ...expenseData,
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
     };
 
-    const stored = localStorage.getItem("expenses");
-    const allExpenses = stored ? JSON.parse(stored) : [];
-    const updatedExpenses = [...allExpenses, newExpense];
-    localStorage.setItem("expenses", JSON.stringify(updatedExpenses));
+    await db.expenses.add(newExpense);
 
     setExpenses([newExpense, ...expenses]);
     setShowExpenseForm(false);
+
     toast.success("Gasto registrado exitosamente");
   };
 
@@ -71,14 +71,17 @@ export function Expenses() {
     (sum, expense) => sum + Number(expense.total || expense.monto),
     0,
   );
+
   const monthlyTotal = monthlyExpenses.reduce(
     (sum, expense) => sum + Number(expense.total || expense.monto),
     0,
   );
+
   const totalIVA = expenses.reduce(
     (sum, expense) => sum + Number(expense.iva || 0),
     0,
   );
+
   const monthlyIVA = monthlyExpenses.reduce(
     (sum, expense) => sum + Number(expense.iva || 0),
     0,

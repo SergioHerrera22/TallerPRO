@@ -1,15 +1,26 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Vehicle } from "../types";
+import { db } from "../../db";
+
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+
 import { VehicleForm } from "../components/VehicleForm";
+
 import { Search, Plus, Car, FileText } from "lucide-react";
 import { toast } from "sonner";
-
+import { createId } from "../../utils";
 export function Dashboard() {
   const navigate = useNavigate();
+
   const [searchPatente, setSearchPatente] = useState("");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showVehicleForm, setShowVehicleForm] = useState(false);
@@ -20,11 +31,9 @@ export function Dashboard() {
     loadVehicles();
   }, []);
 
-  const loadVehicles = () => {
-    const stored = localStorage.getItem("vehicles");
-    if (stored) {
-      setVehicles(JSON.parse(stored));
-    }
+  const loadVehicles = async () => {
+    const vehiclesDB = await db.vehicles.toArray();
+    setVehicles(vehiclesDB);
   };
 
   const handleSearch = () => {
@@ -34,7 +43,7 @@ export function Dashboard() {
     }
 
     const vehicle = vehicles.find(
-      (v) => v.patente.toUpperCase() === searchPatente.toUpperCase()
+      (v) => v.patente.toUpperCase() === searchPatente.toUpperCase(),
     );
 
     setSearchAttempted(true);
@@ -51,25 +60,31 @@ export function Dashboard() {
     }
   };
 
-  const handleRegisterVehicle = (vehicleData: Omit<Vehicle, "id" | "createdAt">) => {
+  const handleRegisterVehicle = async (
+    vehicleData: Omit<Vehicle, "id" | "createdAt">,
+  ) => {
     const newVehicle: Vehicle = {
       ...vehicleData,
-      id: Date.now().toString(),
+      id: createId(),
       createdAt: new Date().toISOString(),
     };
 
-    const updatedVehicles = [...vehicles, newVehicle];
-    localStorage.setItem("vehicles", JSON.stringify(updatedVehicles));
-    setVehicles(updatedVehicles);
+    await db.vehicles.add(newVehicle);
+
+    setVehicles([...vehicles, newVehicle]);
     setShowVehicleForm(false);
+
     toast.success("Vehículo registrado exitosamente");
+
     navigate(`/vehiculo/${newVehicle.id}`);
   };
 
   const recentVehicles = [...vehicles]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
     .slice(0, 5);
-
   return (
     <div className="px-4 sm:px-0">
       <div className="mb-8">
@@ -112,7 +127,8 @@ export function Dashboard() {
             {searchAttempted && !foundVehicle && searchPatente && (
               <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-yellow-800 mb-3">
-                  No se encontró ningún vehículo con la patente <strong>{searchPatente}</strong>
+                  No se encontró ningún vehículo con la patente{" "}
+                  <strong>{searchPatente}</strong>
                 </p>
                 <Button
                   onClick={() => setShowVehicleForm(true)}
@@ -137,7 +153,9 @@ export function Dashboard() {
                 <Car className="h-8 w-8 text-blue-600" />
                 <div>
                   <p className="text-sm text-gray-600">Total Vehículos</p>
-                  <p className="text-2xl font-semibold text-gray-900">{vehicles.length}</p>
+                  <p className="text-2xl font-semibold text-gray-900">
+                    {vehicles.length}
+                  </p>
                 </div>
               </div>
             </div>
@@ -172,7 +190,9 @@ export function Dashboard() {
                       <Car className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">{vehicle.patente}</p>
+                      <p className="font-semibold text-gray-900">
+                        {vehicle.patente}
+                      </p>
                       <p className="text-sm text-gray-600">
                         {vehicle.marca} {vehicle.modelo} ({vehicle.anio})
                       </p>

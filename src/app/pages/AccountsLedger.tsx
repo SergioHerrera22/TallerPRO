@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import db from "../../db";
+import { db } from "../../db";
 import { CuentaCorriente, GastoProveedor } from "../types";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+
 import {
   Card,
   CardContent,
@@ -20,7 +21,6 @@ import {
 } from "../components/ui/table";
 import {
   Search,
-  RefreshCw,
   Plus,
   Edit2,
   TrendingUp,
@@ -45,27 +45,30 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
+import { createId } from "../../utils";
 
 export function AccountsLedger() {
   const [cuentas, setCuentas] = useState<CuentaCorriente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTipo, setFilterTipo] = useState<string>("all");
+
   const [showCuentaDialog, setShowCuentaDialog] = useState(false);
   const [editingCuenta, setEditingCuenta] = useState<CuentaCorriente | null>(
     null,
   );
+
   const [formData, setFormData] = useState({
     entidad: "",
     tipo: "banco" as "banco" | "proveedor" | "otro",
     saldo: 0,
   });
 
-  // Estados para gastos
   const [showGastoDialog, setShowGastoDialog] = useState(false);
   const [showGastosListDialog, setShowGastosListDialog] = useState(false);
   const [selectedCuenta, setSelectedCuenta] = useState<CuentaCorriente | null>(
     null,
   );
+
   const [gastoFormData, setGastoFormData] = useState({
     fecha: new Date().toISOString().split("T")[0],
     detalleProducto: "",
@@ -77,65 +80,34 @@ export function AccountsLedger() {
     loadCuentas();
   }, []);
 
-  const loadCuentas = () => {
-    const saved = localStorage.getItem("cuentasCorrientes");
-    if (saved) {
-      const parsedCuentas = JSON.parse(saved);
-      // Migrar cuentas antiguas que usan 'cliente' en lugar de 'entidad'
-      const migratedCuentas = parsedCuentas.map((cuenta: any) => {
-        if (cuenta.cliente && !cuenta.entidad) {
-          return {
-            ...cuenta,
-            entidad: cuenta.cliente,
-            tipo: cuenta.tipo || "otro",
-            saldo: cuenta.saldoPendiente || cuenta.totalDeudora || 0,
-          };
-        }
-        return {
-          ...cuenta,
-          tipo: cuenta.tipo || "otro",
-          saldo: cuenta.saldo || 0,
-        };
-      });
-      setCuentas(migratedCuentas);
-      // Guardar las cuentas migradas
-      localStorage.setItem(
-        "cuentasCorrientes",
-        JSON.stringify(migratedCuentas),
-      );
-    }
+  const loadCuentas = async () => {
+    const cuentasDB = await db.cuentasCorrientes.toArray();
+    setCuentas(cuentasDB);
   };
 
-  const handleSaveCuenta = () => {
+  const handleSaveCuenta = async () => {
     if (!formData.entidad.trim()) {
       toast.error("Ingrese el nombre de la entidad");
       return;
     }
 
     const cuenta: CuentaCorriente = {
-      id: editingCuenta?.id || Date.now().toString(),
+      id: editingCuenta?.id || createId(),
       entidad: formData.entidad,
       tipo: formData.tipo,
       saldo: formData.saldo,
       updatedAt: new Date().toISOString(),
     };
 
-    let updatedCuentas;
-    if (editingCuenta) {
-      updatedCuentas = cuentas.map((c) =>
-        c.id === editingCuenta.id ? cuenta : c,
-      );
-      toast.success("Cuenta actualizada exitosamente");
-    } else {
-      updatedCuentas = [...cuentas, cuenta];
-      toast.success("Cuenta creada exitosamente");
-    }
+    await db.cuentasCorrientes.put(cuenta);
 
-    setCuentas(updatedCuentas);
-    localStorage.setItem("cuentasCorrientes", JSON.stringify(updatedCuentas));
+    toast.success(editingCuenta ? "Cuenta actualizada" : "Cuenta creada");
+
+    await loadCuentas();
 
     setShowCuentaDialog(false);
     setEditingCuenta(null);
+
     setFormData({
       entidad: "",
       tipo: "banco",
@@ -145,41 +117,46 @@ export function AccountsLedger() {
 
   const handleEditCuenta = (cuenta: CuentaCorriente) => {
     setEditingCuenta(cuenta);
+
     setFormData({
       entidad: cuenta.entidad,
       tipo: cuenta.tipo,
       saldo: cuenta.saldo,
     });
+
     setShowCuentaDialog(true);
   };
 
-  const handleDeleteCuenta = (id: string) => {
-    if (confirm("¿Confirmá que querés eliminar esta cuenta corriente?")) {
-      const updatedCuentas = cuentas.filter((c) => c.id !== id);
-      setCuentas(updatedCuentas);
-      localStorage.setItem("cuentasCorrientes", JSON.stringify(updatedCuentas));
-      toast.success("Cuenta eliminada exitosamente");
-    }
+  const handleDeleteCuenta = async (id: string) => {
+    if (!confirm("¿Confirmá que querés eliminar esta cuenta corriente?"))
+      return;
+
+    await db.cuentasCorrientes.delete(id);
+
+    toast.success("Cuenta eliminada");
+
+    await loadCuentas();
   };
 
-  // Funciones para gastos
   const handleAddGasto = (cuenta: CuentaCorriente) => {
     if (cuenta.tipo !== "proveedor") {
-      toast.error("Solo se pueden agregar gastos a cuentas de proveedores");
+      toast.error("Solo se pueden agregar gastos a proveedores");
       return;
     }
+
     setSelectedCuenta(cuenta);
+
     setGastoFormData({
       fecha: new Date().toISOString().split("T")[0],
       detalleProducto: "",
       iva: 0,
-      unidades: 1,
       total: 0,
     });
+
     setShowGastoDialog(true);
   };
 
-  const handleSaveGasto = () => {
+  const handleSaveGasto = async () => {
     if (!selectedCuenta) return;
 
     if (!gastoFormData.detalleProducto.trim()) {
@@ -197,46 +174,45 @@ export function AccountsLedger() {
     );
 
     const nuevoGasto: GastoProveedor = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       fecha: gastoFormData.fecha,
       detalleProducto: gastoFormData.detalleProducto,
       iva: ivaCalculado,
-
       total: gastoFormData.total,
       createdAt: new Date().toISOString(),
     };
 
-    const updatedCuentas = cuentas.map((cuenta) => {
-      if (cuenta.id === selectedCuenta.id) {
-        const gastosActuales = cuenta.gastos || [];
-        return {
-          ...cuenta,
-          gastos: [...gastosActuales, nuevoGasto],
-          saldo: cuenta.saldo - gastoFormData.total, // Disminuir el saldo (aumentar deuda)
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      return cuenta;
-    });
+    const gastosActuales = selectedCuenta.gastos || [];
 
-    setCuentas(updatedCuentas);
-    localStorage.setItem("cuentasCorrientes", JSON.stringify(updatedCuentas));
-    toast.success("Gasto agregado exitosamente");
+    const cuentaActualizada: CuentaCorriente = {
+      ...selectedCuenta,
+      gastos: [...gastosActuales, nuevoGasto],
+      saldo: selectedCuenta.saldo - gastoFormData.total,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await db.cuentasCorrientes.put(cuentaActualizada);
+
+    toast.success("Gasto agregado");
 
     setShowGastoDialog(false);
-    setSelectedCuenta(null);
+
+    await loadCuentas();
   };
 
   const handleViewGastos = (cuenta: CuentaCorriente) => {
     setSelectedCuenta(cuenta);
+
     setShowGastosListDialog(true);
   };
 
   const filteredCuentas = cuentas.filter((cuenta) => {
-    const matchesSearch = (cuenta.entidad || cuenta.cliente || "")
+    const matchesSearch = cuenta.entidad
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
+
     const matchesTipo = filterTipo === "all" || cuenta.tipo === filterTipo;
+
     return matchesSearch && matchesTipo;
   });
 
@@ -358,7 +334,7 @@ export function AccountsLedger() {
                   filteredCuentas.map((cuenta) => (
                     <TableRow key={cuenta.id}>
                       <TableCell className="font-medium">
-                        {cuenta.entidad || cuenta.cliente || "Sin nombre"}
+                        {cuenta.entidad || "Sin nombre"}
                       </TableCell>
                       <TableCell>
                         <span

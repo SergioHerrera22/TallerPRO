@@ -20,7 +20,7 @@ class TallerDB extends Dexie {
   cheques!: Table<Cheque>;
 
   constructor() {
-    super("TallerPro_DB");
+    super("TallerPro");
 
     this.version(1).stores({
       vehicles: `

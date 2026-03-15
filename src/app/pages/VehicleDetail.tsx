@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Vehicle, OrdenTrabajo } from "../types";
+import { db } from "../../db";
+import { createId } from "../../utils";
+
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -9,24 +12,19 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+
 import { OrderForm } from "../components/OrderForm";
 import { OrderDetailModal } from "../components/OrderDetailModal";
-import {
-  ArrowLeft,
-  Plus,
-  Wrench,
-  Calendar,
-  DollarSign,
-  User,
-  FileText,
-  Edit2,
-} from "lucide-react";
+
+import { ArrowLeft, Plus, Wrench, Calendar, Edit2 } from "lucide-react";
+
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 
 export function VehicleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [orders, setOrders] = useState<OrdenTrabajo[]>([]);
   const [showOrderForm, setShowOrderForm] = useState(false);
@@ -40,78 +38,74 @@ export function VehicleDetail() {
     loadOrders();
   }, [id]);
 
-  const loadVehicle = () => {
-    const stored = localStorage.getItem("vehicles");
-    if (stored) {
-      const vehicles: Vehicle[] = JSON.parse(stored);
-      const found = vehicles.find((v) => v.id === id);
-      setVehicle(found || null);
+  const loadVehicle = async () => {
+    if (!id) return;
+
+    const found = await db.vehicles.get(id);
+
+    if (found) {
+      setVehicle(found);
+    } else {
+      setVehicle(null);
     }
   };
 
-  const loadOrders = () => {
-    const stored = localStorage.getItem("ordenesTrabajo");
-    const savedOTNumber = localStorage.getItem("nextOTNumber");
-    if (stored) {
-      const allOrders: OrdenTrabajo[] = JSON.parse(stored);
-      const vehicleOrders = allOrders
-        .filter((o) => o.vehicleId === id)
-        .sort(
-          (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
-        );
-      setOrders(vehicleOrders);
-    }
-    if (savedOTNumber) {
-      setNextOTNumber(parseInt(savedOTNumber));
-    }
+  const loadOrders = async () => {
+    if (!id) return;
+
+    const vehicleOrders = await db.ordenesTrabajo
+      .where("vehicleId")
+      .equals(id)
+      .reverse()
+      .sortBy("fecha");
+
+    setOrders(vehicleOrders);
   };
 
-  const generateOTNumber = (): string => {
+  const generateOTNumber = () => {
     const newNumber = nextOTNumber;
+
     setNextOTNumber(newNumber + 1);
-    localStorage.setItem("nextOTNumber", (newNumber + 1).toString());
+
     return `OT-${String(newNumber).padStart(3, "0")}`;
   };
 
-  const handleAddOrder = (
+  const handleAddOrder = async (
     orderData: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
   ) => {
     const newOrder: OrdenTrabajo = {
       ...orderData,
-      id: Date.now().toString(),
+      id: createId(),
       numeroOT: generateOTNumber(),
       createdAt: new Date().toISOString(),
     };
 
-    const stored = localStorage.getItem("ordenesTrabajo");
-    const allOrders = stored ? JSON.parse(stored) : [];
-    const updatedOrders = [...allOrders, newOrder];
-    localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedOrders));
+    await db.ordenesTrabajo.add(newOrder);
 
     setOrders([newOrder, ...orders]);
+
     setShowOrderForm(false);
+
     toast.success("Orden de trabajo creada exitosamente");
   };
 
-  const handleUpdateOrder = (
+  const handleUpdateOrder = async (
     orderData: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
   ) => {
     if (!editingOrder) return;
 
-    const updatedOrders = orders.map((o) =>
-      o.id === editingOrder.id ? { ...o, ...orderData } : o,
-    );
+    const updated = {
+      ...editingOrder,
+      ...orderData,
+    };
 
-    const stored = localStorage.getItem("ordenesTrabajo");
-    const allOrders = stored ? JSON.parse(stored) : [];
-    const updatedAllOrders = allOrders.map((o) =>
-      o.id === editingOrder.id ? { ...o, ...orderData } : o,
-    );
+    await db.ordenesTrabajo.put(updated);
 
-    localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedAllOrders));
-    setOrders(updatedOrders);
+    setOrders(orders.map((o) => (o.id === editingOrder.id ? updated : o)));
+
     setShowOrderForm(false);
     setEditingOrder(undefined);
+
     toast.success("Orden actualizada exitosamente");
   };
 
@@ -121,26 +115,27 @@ export function VehicleDetail() {
     setShowOrderForm(true);
   };
 
-  const handleDeleteOrder = (orderId: string) => {
-    if (confirm("¿Confirmá que querés eliminar esta orden de trabajo?")) {
-      const updatedOrders = orders.filter((o) => o.id !== orderId);
-      const stored = localStorage.getItem("ordenesTrabajo");
-      const allOrders = stored ? JSON.parse(stored) : [];
-      const updatedAllOrders = allOrders.filter((o) => o.id !== orderId);
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("¿Confirmá que querés eliminar esta orden de trabajo?"))
+      return;
 
-      localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedAllOrders));
-      setOrders(updatedOrders);
-      setShowOrderDetailModal(false);
-      toast.success("Orden eliminada exitosamente");
-    }
+    await db.ordenesTrabajo.delete(orderId);
+
+    setOrders(orders.filter((o) => o.id !== orderId));
+
+    setShowOrderDetailModal(false);
+
+    toast.success("Orden eliminada exitosamente");
   };
 
   const getStatusColor = (estado: string) => {
     switch (estado) {
       case "completada":
         return "bg-green-100 text-green-800";
+
       case "en-progreso":
         return "bg-blue-100 text-blue-800";
+
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -153,6 +148,7 @@ export function VehicleDetail() {
       <div className="px-4 sm:px-0">
         <div className="text-center py-12">
           <p className="text-gray-600 mb-4">Vehículo no encontrado</p>
+
           <Button onClick={() => navigate("/")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver al inicio
@@ -161,7 +157,6 @@ export function VehicleDetail() {
       </div>
     );
   }
-
   return (
     <div className="px-4 sm:px-0">
       <div className="mb-6">
@@ -276,12 +271,18 @@ export function VehicleDetail() {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                     <div>
-                      <h3 className="font-semibold text-lg">{order.numeroOT}</h3>
+                      <h3 className="font-semibold text-lg">
+                        {order.numeroOT}
+                      </h3>
                       <p className="text-gray-600">{order.descripcion}</p>
                     </div>
                     <div className="text-right flex flex-col items-end gap-2">
                       <Badge className={getStatusColor(order.estado)}>
-                        {order.estado === "completada" ? "Completada" : order.estado === "en-progreso" ? "En Progreso" : "Pendiente"}
+                        {order.estado === "completada"
+                          ? "Completada"
+                          : order.estado === "en-progreso"
+                            ? "En Progreso"
+                            : "Pendiente"}
                       </Badge>
                       <Button
                         size="sm"

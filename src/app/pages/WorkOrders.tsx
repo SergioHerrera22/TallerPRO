@@ -1,15 +1,21 @@
 import { useState, useEffect } from "react";
 import { OrdenTrabajo, Vehicle } from "../types";
+import { db } from "../../db";
+import { createId } from "../../utils";
+
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "../components/ui/card";
+
 import { Badge } from "../components/ui/badge";
+
 import {
   Table,
   TableBody,
@@ -18,8 +24,10 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
+
 import { OrderForm } from "../components/OrderForm";
 import { OrderDetailModal } from "../components/OrderDetailModal";
+
 import { Plus, Search, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,89 +46,78 @@ export function WorkOrders() {
     loadData();
   }, []);
 
-  const loadData = () => {
-    const savedOrders = localStorage.getItem("ordenesTrabajo");
-    const savedVehicles = localStorage.getItem("vehicles");
-    const savedOTNumber = localStorage.getItem("nextOTNumber");
+  const loadData = async () => {
+    const savedOrders = await db.ordenesTrabajo.toArray();
+    const savedVehicles = await db.vehicles.toArray();
 
-    if (savedOrders) {
-      const parsedOrders = JSON.parse(savedOrders);
-      // Migrar órdenes existentes para incluir nuevos campos
-      const migratedOrders = parsedOrders.map((order: any) => ({
-        ...order,
-        telefono: order.telefono || "",
-        entregasCuenta: order.entregasCuenta || [],
-        saldoPendiente:
-          order.saldoPendiente !== undefined
-            ? order.saldoPendiente
-            : order.monto,
-      }));
-      setOrders(migratedOrders);
-      // Guardar órdenes migradas
-      localStorage.setItem("ordenesTrabajo", JSON.stringify(migratedOrders));
-    }
-    if (savedVehicles) {
-      setVehicles(JSON.parse(savedVehicles));
-    }
-    if (savedOTNumber) {
-      setNextOTNumber(parseInt(savedOTNumber));
-    }
+    setOrders(savedOrders);
+    setVehicles(savedVehicles);
   };
 
-  const generateOTNumber = (): string => {
+  const generateOTNumber = () => {
     const newNumber = nextOTNumber;
+
     setNextOTNumber(newNumber + 1);
-    localStorage.setItem("nextOTNumber", (newNumber + 1).toString());
+
     return `OT-${String(newNumber).padStart(3, "0")}`;
   };
 
-  const handleCreateOrder = (
+  const handleCreateOrder = async (
     data: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
   ) => {
-    // Obtener el teléfono del vehículo
     const vehicle = vehicles.find((v) => v.id === data.vehicleId);
+
     const telefono = vehicle?.telefono || "";
 
     const newOrder: OrdenTrabajo = {
       ...data,
-      id: Date.now().toString(),
+      id: createId(),
       numeroOT: generateOTNumber(),
       telefono,
       createdAt: new Date().toISOString(),
     };
 
-    const updatedOrders = [...orders, newOrder];
-    localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedOrders));
-    setOrders(updatedOrders);
+    await db.ordenesTrabajo.add(newOrder);
+
+    setOrders([...orders, newOrder]);
+
     setShowForm(false);
     setEditingOrder(undefined);
+
     toast.success("Orden de trabajo creada exitosamente");
   };
 
-  const handleUpdateOrder = (
+  const handleUpdateOrder = async (
     data: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
   ) => {
     if (!editingOrder) return;
 
-    const updatedOrders = orders.map((o) =>
-      o.id === editingOrder.id ? { ...o, ...data } : o,
-    );
+    const updatedOrder = {
+      ...editingOrder,
+      ...data,
+    };
 
-    localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedOrders));
-    setOrders(updatedOrders);
+    await db.ordenesTrabajo.put(updatedOrder);
+
+    setOrders(orders.map((o) => (o.id === editingOrder.id ? updatedOrder : o)));
+
     setShowForm(false);
     setEditingOrder(undefined);
+
     toast.success("Orden actualizada exitosamente");
   };
 
-  const handleDeleteOrder = (orderId: string) => {
-    if (confirm("¿Confirmá que querés eliminar esta orden de trabajo?")) {
-      const updatedOrders = orders.filter((o) => o.id !== orderId);
-      localStorage.setItem("ordenesTrabajo", JSON.stringify(updatedOrders));
-      setOrders(updatedOrders);
-      setShowDetailModal(false);
-      toast.success("Orden eliminada exitosamente");
-    }
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("¿Confirmá que querés eliminar esta orden de trabajo?"))
+      return;
+
+    await db.ordenesTrabajo.delete(orderId);
+
+    setOrders(orders.filter((o) => o.id !== orderId));
+
+    setShowDetailModal(false);
+
+    toast.success("Orden eliminada exitosamente");
   };
 
   const handleEditOrder = (order: OrdenTrabajo) => {
@@ -145,15 +142,16 @@ export function WorkOrders() {
     switch (estado) {
       case "completada":
         return "bg-green-100 text-green-800";
+
       case "en-progreso":
         return "bg-blue-100 text-blue-800";
+
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
   const totalLavados = orders.filter((o) => o.lavado).length;
-
   return (
     <div className="px-4 sm:px-0 space-y-6">
       <div>
