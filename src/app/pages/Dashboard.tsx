@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Vehicle } from "../types";
+import { Vehicle, Expense, CuentaCorriente } from "../types";
 import { db } from "../../db";
 
 import { Button } from "../components/ui/button";
@@ -26,14 +26,37 @@ export function Dashboard() {
   const [showVehicleForm, setShowVehicleForm] = useState(false);
   const [searchAttempted, setSearchAttempted] = useState(false);
   const [foundVehicle, setFoundVehicle] = useState<Vehicle | null>(null);
+  const [deudaCuentasCorrientes, setDeudaCuentasCorrientes] = useState(0);
+  const [egresosTotales, setEgresosTotales] = useState(0);
 
   useEffect(() => {
     loadVehicles();
+    loadDeudaCuentasCorrientes();
+    loadEgresosTotales();
   }, []);
 
   const loadVehicles = async () => {
     const vehiclesDB = await db.vehicles.toArray();
     setVehicles(vehiclesDB);
+  };
+
+  const loadDeudaCuentasCorrientes = async () => {
+    const cuentas: CuentaCorriente[] = await db.cuentasCorrientes.toArray();
+    // Sumar solo los saldos negativos (deuda)
+    const totalDeuda = cuentas
+      .filter((c) => c.saldo < 0)
+      .reduce((sum, c) => sum + c.saldo, 0);
+    setDeudaCuentasCorrientes(totalDeuda);
+  };
+
+  const loadEgresosTotales = async () => {
+    const egresos: Expense[] = await db.expenses.toArray();
+    // Sumar todos los gastos realizados
+    const totalEgresos = egresos.reduce(
+      (sum, e) => sum + (e.total || e.monto || 0),
+      0,
+    );
+    setEgresosTotales(totalEgresos);
   };
 
   const handleSearch = () => {
@@ -155,6 +178,62 @@ export function Dashboard() {
                   <p className="text-sm text-gray-600">Total Vehículos</p>
                   <p className="text-2xl font-semibold text-gray-900">
                     {vehicles.length}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <span className="h-8 w-8 flex items-center justify-center rounded-full bg-red-200 text-red-700 font-bold text-lg">
+                  $
+                </span>
+                <div>
+                  <p className="text-sm text-gray-600">
+                    Total Deudas en Cuentas Corrientes
+                  </p>
+                  <p className="text-2xl font-semibold text-red-700">
+                    {deudaCuentasCorrientes < 0
+                      ? deudaCuentasCorrientes.toLocaleString("es-AR", {
+                          style: "currency",
+                          currency: "ARS",
+                        })
+                      : "$0,00"}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <span className="h-8 w-8 flex items-center justify-center rounded-full bg-green-200 text-green-700 font-bold text-lg">
+                  $
+                </span>
+                <div>
+                  <p className="text-sm text-gray-600">
+                    Total Gastos Realizados
+                  </p>
+                  <p className="text-2xl font-semibold text-green-700">
+                    {egresosTotales.toLocaleString("es-AR", {
+                      style: "currency",
+                      currency: "ARS",
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-yellow-100 rounded-lg border border-yellow-300">
+              <div className="flex items-center gap-3">
+                <span className="h-8 w-8 flex items-center justify-center rounded-full bg-yellow-200 text-yellow-700 font-bold text-lg">
+                  Σ
+                </span>
+                <div>
+                  <p className="text-sm text-gray-700 font-semibold">
+                    Compromiso Total (Egresos + Deudas)
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-800">
+                    {(egresosTotales + deudaCuentasCorrientes).toLocaleString(
+                      "es-AR",
+                      { style: "currency", currency: "ARS" },
+                    )}
                   </p>
                 </div>
               </div>

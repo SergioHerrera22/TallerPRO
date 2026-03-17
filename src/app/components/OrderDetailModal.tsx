@@ -31,6 +31,9 @@ export function OrderDetailModal({
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
+    // Abrir el PDF en una nueva pestaña para imprimir
+    window.open("/src/services/check.pdf", "_blank");
+
     const statusBadgeColor =
       order.estado === "completada"
         ? "bg-green-100 text-green-800"
@@ -127,6 +130,50 @@ export function OrderDetailModal({
                 <div class="info-value">${order.tecnico}</div>
               </div>
             </div>
+          </div>
+
+          ${
+            order.repuestos && order.repuestos.length > 0
+              ? `
+          <div class="info-section">
+            <h2>Repuestos Utilizados</h2>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+              <tr>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">Detalle</th>
+                <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">Precio</th>
+              </tr>
+              ${order.repuestos
+                .map(
+                  (r) => `
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${r.detalle}</td>
+                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">$${r.precio.toFixed(2)}</td>
+              </tr>
+              `,
+                )
+                .join("")}
+              <tr style="font-weight: bold;">
+                <td style="padding: 8px; text-align: right;">Subtotal Repuestos:</td>
+                <td style="text-align: right; padding: 8px;">$${(order.repuestos?.reduce((sum, r) => sum + r.precio, 0) || 0).toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+          `
+              : ""
+          }
+
+          <div class="info-section">
+            <h2>Costos</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px;">Mano de Obra:</td>
+                <td style="text-align: right; padding: 8px;">$${order.manoDeObra.toFixed(2)}</td>
+              </tr>
+              <tr style="font-weight: bold; border-top: 2px solid #333;">
+                <td style="padding: 8px; font-size: 16px;">TOTAL:</td>
+                <td style="text-align: right; padding: 8px; font-size: 16px;">$${order.monto.toFixed(2)}</td>
+              </tr>
+            </table>
           </div>
 
           <div class="info-section">
@@ -235,6 +282,54 @@ export function OrderDetailModal({
               <div>
                 <p className="text-sm text-gray-600">Técnico</p>
                 <p className="font-semibold">{order.tecnico}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Repuestos Utilizados */}
+          {order.repuestos && order.repuestos.length > 0 && (
+            <div className="border-t pt-4">
+              <h3 className="font-semibold mb-3">Repuestos Utilizados</h3>
+              <div className="space-y-2">
+                {order.repuestos.map((repuesto, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center bg-gray-50 p-2 rounded border text-sm"
+                  >
+                    <span>{repuesto.detalle}</span>
+                    <span className="font-semibold">
+                      ${repuesto.precio.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center font-semibold pt-2 border-t">
+                  <span>Subtotal Repuestos:</span>
+                  <span>
+                    $
+                    {(
+                      order.repuestos?.reduce((sum, r) => sum + r.precio, 0) ||
+                      0
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mano de Obra */}
+          <div className="border-t pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Mano de Obra</p>
+                <p className="text-lg font-semibold">
+                  ${order.manoDeObra.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-lg font-bold text-blue-600">
+                  ${order.monto.toFixed(2)}
+                </p>
               </div>
             </div>
           </div>

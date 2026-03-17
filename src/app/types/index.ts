@@ -34,6 +34,11 @@ export interface Expense {
   metodoPago: string;
 }
 
+export interface LineaRepuesto {
+  detalle: string;
+  precio: number;
+}
+
 export interface OrdenTrabajo {
   id: string;
   numeroOT: string;
@@ -43,7 +48,9 @@ export interface OrdenTrabajo {
   telefono?: string;
   fecha: string;
   descripcion: string;
-  monto: number;
+  repuestos?: LineaRepuesto[]; // Array de repuestos con detalle y precio
+  manoDeObra: number; // Costo de la mano de obra
+  monto: number; // Total: suma de repuestos + mano de obra
   entregasCuenta?: number[]; // Array de entregas a cuenta
   saldoPendiente: number; // Monto total - sumatoria de entregas a cuenta
   tecnico: string;
