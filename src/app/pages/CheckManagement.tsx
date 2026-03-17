@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Cheque, OrdenTrabajo, Vehicle } from "../types";
 import { db } from "../../db";
+
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -28,7 +29,9 @@ import {
   CheckCircle,
   DollarSign,
 } from "lucide-react";
+
 import { toast } from "sonner";
+
 import {
   Dialog,
   DialogContent,
@@ -36,6 +39,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../components/ui/dialog";
+
 import {
   Select,
   SelectContent,
@@ -45,100 +49,93 @@ import {
 } from "../components/ui/select";
 
 export function CheckManagement() {
-  // --- Estados faltantes agregados ---
+  // --- Estados Principales ---
   const [cheques, setCheques] = useState<Cheque[]>([]);
   const [ordenesTrabajo, setOrdenesTrabajo] = useState<OrdenTrabajo[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [cuentasCorrientes, setCuentasCorrientes] = useState<any[]>([]);
 
+  // --- Estados de UI ---
   const [showForm, setShowForm] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showImputacionModal, setShowImputacionModal] = useState(false);
-
   const [editingCheque, setEditingCheque] = useState<Cheque | undefined>();
   const [selectedCheque, setSelectedCheque] = useState<Cheque | null>(null);
 
+  // --- Filtros e Imputación ---
   const [searchTerm, setSearchTerm] = useState("");
   const [filterEstado, setFilterEstado] = useState("all");
   const [selectedDestinoTipo, setSelectedDestinoTipo] = useState<string>("");
   const [selectedClienteId, setSelectedClienteId] = useState("");
   const [selectedCuentaId, setSelectedCuentaId] = useState("");
 
-  // Cargar datos iniciales (Simulado/Efecto)
+  // --- Carga de Datos ---
   useEffect(() => {
-    const fetchData = async () => {
-      const c = await db.cheques.toArray();
-      const ot = await db.ordenesTrabajo.toArray();
-      const v = await db.vehicles.toArray();
-      const cc = await db.cuentasCorrientes.toArray();
+    const loadData = async () => {
+      const [c, ot, v, cc] = await Promise.all([
+        db.cheques.toArray(),
+        db.ordenesTrabajo.toArray(),
+        db.vehicles.toArray(),
+        db.cuentasCorrientes.toArray(),
+      ]);
       setCheques(c);
       setOrdenesTrabajo(ot);
       setVehicles(v);
       setCuentasCorrientes(cc);
     };
-    fetchData();
+    loadData();
   }, []);
 
-  // --- Funciones de Acción ---
-  const handleCreateCheque = async (data: any) => {
-    try {
-      const newCheque = { ...data, id: crypto.randomUUID() };
-      await db.cheques.add(newCheque);
-      setCheques([...cheques, newCheque]);
-      setShowForm(false);
-      toast.success("Cheque creado");
-    } catch (e) {
-      toast.error("Error al crear");
-    }
-  };
-
-  const handleUpdateCheque = async (data: any) => {
-    try {
-      await db.cheques.put(data);
-      setCheques(cheques.map((c) => (c.id === data.id ? data : c)));
-      setShowForm(false);
-      toast.success("Cheque actualizado");
-    } catch (e) {
-      toast.error("Error al actualizar");
-    }
-  };
-
+  // --- Lógica de Imputación (Corregida) ---
   const handleImputarCheque = async () => {
     if (!selectedCheque) return;
 
+    // ESCENARIO A: CUENTA CORRIENTE
     if (selectedDestinoTipo === "cuentaCorriente") {
       if (!selectedCuentaId) return;
-      const cuenta = cuentasCorrientes.find((c) => c.id === selectedCuentaId);
-      if (!cuenta) return toast.error("Cuenta no encontrada");
 
-      const updatedCuenta = {
-        ...cuenta,
-        saldo: parseFloat(cuenta.saldo) - selectedCheque.monto,
+      const empresa = cuentasCorrientes.find((c) => c.id === selectedCuentaId);
+      if (!empresa) {
+        toast.error("Cuenta corriente no encontrada");
+        return;
+      }
+
+      const nuevoSaldo =
+        parseFloat(empresa.saldo) - parseFloat(String(selectedCheque.monto));
+      const empresaActualizada = {
+        ...empresa,
+        saldo: nuevoSaldo,
         updatedAt: new Date().toISOString(),
       };
 
-      await db.cuentasCorrientes.put(updatedCuenta);
+      // Actualizar DB y Estado
+      await db.cuentasCorrientes.put(empresaActualizada);
+
       const updatedCheques = cheques.map((c) =>
         c.id === selectedCheque.id
           ? {
               ...c,
               estado: "imputado" as const,
               fechaImputacion: new Date().toISOString(),
+              observaciones:
+                `${c.observaciones || ""} Imputado a CC: ${empresa.entidad}`.trim(),
             }
           : c,
       );
-      await db.cheques.bulkPut(updatedCheques);
 
+      await db.cheques.bulkPut(updatedCheques);
       setCheques(updatedCheques);
-      setCuentasCorrientes(
-        cuentasCorrientes.map((c) =>
-          c.id === selectedCuentaId ? updatedCuenta : c,
+      setCuentasCorrientes((prev) =>
+        prev.map((item) =>
+          item.id === selectedCuentaId ? empresaActualizada : item,
         ),
       );
-      setShowImputacionModal(false);
-      toast.success("Imputado a cuenta corriente");
+
+      toast.success(`Cheque imputado a ${empresa.entidad}`);
+      finalizarImputacion();
     }
 
+    // ESCENARIO B: CLIENTE
     if (selectedDestinoTipo === "cliente") {
       if (!selectedClienteId) return;
       const clienteSeleccionado = vehicles.find(
@@ -161,7 +158,8 @@ export function CheckManagement() {
       );
 
       if (selectedCheque.monto > deudaTotal) {
-        return toast.error("El monto excede la deuda total");
+        toast.error("El monto excede la deuda total del cliente");
+        return;
       }
 
       let montoRestante = selectedCheque.monto;
@@ -173,14 +171,25 @@ export function CheckManagement() {
         ) {
           const pago = Math.min(montoRestante, orden.saldoPendiente);
           montoRestante -= pago;
-          return { ...orden, saldoPendiente: orden.saldoPendiente - pago };
+          return {
+            ...orden,
+            entregasCuenta: [...(orden.entregasCuenta || []), pago],
+            saldoPendiente: orden.saldoPendiente - pago,
+          };
         }
         return orden;
       });
 
       const updatedCheques = cheques.map((c) =>
         c.id === selectedCheque.id
-          ? { ...c, estado: "imputado" as const, clienteId: selectedClienteId }
+          ? {
+              ...c,
+              estado: "imputado" as const,
+              clienteId: selectedClienteId,
+              fechaImputacion: new Date().toISOString(),
+              observaciones:
+                `${c.observaciones || ""} Imputado a cliente ${clienteSeleccionado.cliente}`.trim(),
+            }
           : c,
       );
 
@@ -188,12 +197,45 @@ export function CheckManagement() {
       await db.ordenesTrabajo.bulkPut(updatedOrdenes);
       setCheques(updatedCheques);
       setOrdenesTrabajo(updatedOrdenes);
-      setShowImputacionModal(false);
-      toast.success("Imputado a cliente");
+
+      toast.success(`Imputado a ${clienteSeleccionado.cliente}`);
+      finalizarImputacion();
     }
   };
 
-  // --- Helpers de UI ---
+  const finalizarImputacion = () => {
+    setShowImputacionModal(false);
+    setShowDetailModal(false);
+    setSelectedClienteId("");
+    setSelectedCuentaId("");
+    setSelectedDestinoTipo("");
+  };
+
+  // --- CRUD Básico ---
+  const handleCreateCheque = async (data: any) => {
+    const newCheque = { ...data, id: crypto.randomUUID() };
+    await db.cheques.add(newCheque);
+    setCheques([...cheques, newCheque]);
+    setShowForm(false);
+    toast.success("Cheque registrado");
+  };
+
+  const handleUpdateCheque = async (data: any) => {
+    await db.cheques.put(data);
+    setCheques(cheques.map((c) => (c.id === data.id ? data : c)));
+    setShowForm(false);
+    setEditingCheque(undefined);
+    toast.success("Cheque actualizado");
+  };
+
+  const handleDeleteCheque = async (id: string) => {
+    await db.cheques.delete(id);
+    setCheques(cheques.filter((c) => c.id !== id));
+    setShowDetailModal(false);
+    toast.success("Cheque eliminado");
+  };
+
+  // --- Helpers UI ---
   const getClientesConDeuda = () => {
     const clientesConDeuda = new Set(
       ordenesTrabajo.filter((o) => o.saldoPendiente > 0).map((o) => o.cliente),
@@ -211,13 +253,16 @@ export function CheckManagement() {
   });
 
   const getStatusColor = (estado: string) => {
-    const colors: Record<string, string> = {
-      cobrado: "bg-green-100 text-green-800",
-      entregado: "bg-blue-100 text-blue-800",
-      imputado: "bg-purple-100 text-purple-800",
-      "en-cartera": "bg-yellow-100 text-yellow-800",
-    };
-    return colors[estado] || colors["en-cartera"];
+    switch (estado) {
+      case "cobrado":
+        return "bg-green-100 text-green-800";
+      case "entregado":
+        return "bg-blue-100 text-blue-800";
+      case "imputado":
+        return "bg-purple-100 text-purple-800";
+      default:
+        return "bg-yellow-100 text-yellow-800";
+    }
   };
 
   const getStatusLabel = (estado: string) => {
@@ -232,16 +277,31 @@ export function CheckManagement() {
 
   const totalMonto = filteredCheques.reduce((sum, c) => sum + c.monto, 0);
 
-  const handleDeleteCheque = async (id: string) => {
-    await db.cheques.delete(id);
-    setCheques(cheques.filter((c) => c.id !== id));
-    setShowDetailModal(false);
-    toast.success("Eliminado");
-  };
-
   return (
     <div className="px-4 sm:px-0 space-y-6">
-      {/* ... (Cabecera y Stats se mantienen igual) ... */}
+      <div>
+        <h1 className="text-3xl font-semibold text-gray-900 mb-2">
+          Gestión de Cheques
+        </h1>
+        <p className="text-gray-600">
+          Registre y controle los cheques del taller
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Registrado
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${totalMonto.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+        {/* Agrega aquí el resto de tus cards de stats si lo deseas */}
+      </div>
 
       {/* Filtros */}
       <Card>
@@ -250,7 +310,7 @@ export function CheckManagement() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Buscar..."
+                placeholder="Buscar por número o emisor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -259,19 +319,15 @@ export function CheckManagement() {
             <select
               value={filterEstado}
               onChange={(e) => setFilterEstado(e.target.value)}
-              className="px-3 py-2 border rounded-md"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
             >
-              <option value="all">Todos</option>
+              <option value="all">Todos los estados</option>
               <option value="en-cartera">En Cartera</option>
               <option value="imputado">Imputado</option>
+              <option value="cobrado">Cobrado</option>
             </select>
-            <Button
-              onClick={() => {
-                setEditingCheque(undefined);
-                setShowForm(true);
-              }}
-            >
-              <Plus className="h-4 w-4 mr-2" /> Nuevo
+            <Button onClick={() => setShowForm(true)} className="gap-2">
+              <Plus className="h-4 w-4" /> Nuevo Cheque
             </Button>
           </div>
         </CardContent>
@@ -279,82 +335,253 @@ export function CheckManagement() {
 
       {/* Tabla */}
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Número</TableHead>
-              <TableHead>Emisor</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredCheques.map((cheque) => (
-              <TableRow
-                key={cheque.id}
-                onClick={() => {
-                  setSelectedCheque(cheque);
-                  setShowDetailModal(true);
-                }}
-              >
-                <TableCell>{cheque.numero}</TableCell>
-                <TableCell>{cheque.emisor}</TableCell>
-                <TableCell className="text-right">
-                  ${cheque.monto.toFixed(2)}
-                </TableCell>
-                <TableCell>
-                  <Badge className={getStatusColor(cheque.estado)}>
-                    {getStatusLabel(cheque.estado)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
+        <CardHeader>
+          <CardTitle>Listado de Cheques</CardTitle>
+          <CardDescription>
+            {filteredCheques.length} cheques encontrados
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Número</TableHead>
+                  <TableHead>Emisor</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCheques.map((cheque) => (
+                  <TableRow
+                    key={cheque.id}
+                    className="cursor-pointer hover:bg-gray-50"
+                    onClick={() => {
                       setSelectedCheque(cheque);
-                      setShowImputacionModal(true);
+                      setShowDetailModal(true);
                     }}
                   >
-                    <DollarSign className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                    <TableCell className="font-medium">
+                      {cheque.numero || "—"}
+                    </TableCell>
+                    <TableCell>{cheque.emisor}</TableCell>
+                    <TableCell className="text-right font-semibold">
+                      ${cheque.monto.toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(cheque.estado)}>
+                        {getStatusLabel(cheque.estado)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {cheque.estado === "en-cartera" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCheque(cheque);
+                              setShowImputacionModal(true);
+                            }}
+                          >
+                            <DollarSign className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCheque(cheque);
+                            setShowForm(true);
+                          }}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
       </Card>
 
-      {/* Modales - Asegúrate de que ChequeForm reciba las props correctas */}
+      {/* --- MODALES --- */}
+
+      {/* Formulario Crear/Editar */}
       <ChequeForm
         isOpen={showForm}
-        onClose={() => setShowForm(false)}
+        onClose={() => {
+          setShowForm(false);
+          setEditingCheque(undefined);
+        }}
         onSubmit={editingCheque ? handleUpdateCheque : handleCreateCheque}
         initialData={editingCheque}
       />
 
-      {/* Modal Imputación simplificado para el ejemplo */}
-      <Dialog open={showImputacionModal} onOpenChange={setShowImputacionModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Imputar Cheque</DialogTitle>
-          </DialogHeader>
-          <Select onValueChange={setSelectedDestinoTipo}>
-            <SelectTrigger>
-              <SelectValue placeholder="Destino" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cliente">Cliente</SelectItem>
-              <SelectItem value="cuentaCorriente">Cuenta Corriente</SelectItem>
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button onClick={handleImputarCheque}>Confirmar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Detalle del Cheque */}
+      {selectedCheque && (
+        <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Detalle del Cheque {selectedCheque.numero}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500">Monto</p>
+                  <p className="font-bold">
+                    ${selectedCheque.monto.toFixed(2)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Emisor</p>
+                  <p>{selectedCheque.emisor}</p>
+                </div>
+              </div>
+              <Badge className={getStatusColor(selectedCheque.estado)}>
+                {getStatusLabel(selectedCheque.estado)}
+              </Badge>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="destructive"
+                onClick={() => handleDeleteCheque(selectedCheque.id)}
+              >
+                Eliminar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowDetailModal(false)}
+              >
+                Cerrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal Imputación (Corregido) */}
+      {selectedCheque && (
+        <Dialog
+          open={showImputacionModal}
+          onOpenChange={setShowImputacionModal}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5" /> Imputar Cheque
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                <p>
+                  <strong>Monto:</strong> ${selectedCheque.monto.toFixed(2)}
+                </p>
+                <p>
+                  <strong>Emisor:</strong> {selectedCheque.emisor}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Destino de la imputación
+                </label>
+                <Select
+                  value={selectedDestinoTipo}
+                  onValueChange={setSelectedDestinoTipo}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cliente">
+                      Cliente (Deuda de OT)
+                    </SelectItem>
+                    <SelectItem value="cuentaCorriente">
+                      Cuenta Corriente (Proveedor/Empresa)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedDestinoTipo === "cliente" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Seleccionar Cliente
+                  </label>
+                  <Select
+                    value={selectedClienteId}
+                    onValueChange={setSelectedClienteId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Elegir cliente..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getClientesConDeuda().map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.cliente}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {selectedDestinoTipo === "cuentaCorriente" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Seleccionar Cuenta Corriente
+                  </label>
+                  <Select
+                    value={selectedCuentaId}
+                    onValueChange={setSelectedCuentaId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Elegir empresa..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cuentasCorrientes.map((cc) => (
+                        <SelectItem key={cc.id} value={cc.id}>
+                          {cc.entidad} (Saldo: ${cc.saldo.toFixed(2)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowImputacionModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleImputarCheque}
+                disabled={
+                  !selectedDestinoTipo ||
+                  (selectedDestinoTipo === "cliente" && !selectedClienteId) ||
+                  (selectedDestinoTipo === "cuentaCorriente" &&
+                    !selectedCuentaId)
+                }
+              >
+                Confirmar Imputación
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
