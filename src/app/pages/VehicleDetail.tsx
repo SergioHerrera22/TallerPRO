@@ -15,13 +15,15 @@ import {
 
 import { OrderForm } from "../components/OrderForm";
 import { OrderDetailModal } from "../components/OrderDetailModal";
+import { VehicleForm } from "../components/VehicleForm";
 
-import { ArrowLeft, Plus, Wrench, Calendar, Edit2 } from "lucide-react";
+import { ArrowLeft, Plus, Wrench, Calendar, Edit2, X } from "lucide-react";
 
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 
 export function VehicleDetail() {
+  const [showEditVehicleForm, setShowEditVehicleForm] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -40,10 +42,8 @@ export function VehicleDetail() {
 
   const loadVehicle = async () => {
     if (!id) return;
-
     const found = await db.vehicles.get(id);
-
-    if (found) {
+    if (found && !found.deleted) {
       setVehicle(found);
     } else {
       setVehicle(null);
@@ -148,7 +148,6 @@ export function VehicleDetail() {
       <div className="px-4 sm:px-0">
         <div className="text-center py-12">
           <p className="text-gray-600 mb-4">Vehículo no encontrado</p>
-
           <Button onClick={() => navigate("/")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver al inicio
@@ -198,6 +197,7 @@ export function VehicleDetail() {
               <p className="text-sm text-gray-600">Teléfono</p>
               <p className="font-semibold">{vehicle.telefono}</p>
             </div>
+            {/* Opciones de editar/eliminar eliminadas por requerimiento */}
           </CardContent>
         </Card>
 

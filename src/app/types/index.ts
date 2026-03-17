@@ -9,6 +9,7 @@ export interface Vehicle {
   telefono: string;
   kilometros: number;
   createdAt: string;
+  deleted?: boolean;
 }
 
 export interface Service {

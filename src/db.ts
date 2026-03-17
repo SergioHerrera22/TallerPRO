@@ -33,7 +33,8 @@ class TallerDB extends Dexie {
         color,
         telefono,
         kilometros,
-        createdAt
+        createdAt,
+        deleted
       `,
 
       services: `

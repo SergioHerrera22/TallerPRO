@@ -129,24 +129,32 @@ export function BusinessExpenses() {
 
     const monthlyExpenses = expenses.filter((expense) => {
       const date = new Date(expense.fecha);
-
       return (
         date.getFullYear() === Number(year) &&
         date.getMonth() === Number(month) - 1
       );
     });
 
-    const monthlyDebts = cuentasCorrientes.filter((cuenta) => cuenta.saldo < 0);
+    // Extraer gastos de proveedores de cuentas corrientes
+    const monthlyProviderExpenses = cuentasCorrientes
+      .filter((cuenta) => cuenta.gastos && cuenta.gastos.length > 0)
+      .flatMap((cuenta) =>
+        cuenta.gastos!.filter((gasto) => {
+          const date = new Date(gasto.fecha);
+          return (
+            date.getFullYear() === Number(year) &&
+            date.getMonth() === Number(month) - 1
+          );
+        }),
+      );
 
+    const monthlyDebts = cuentasCorrientes.filter((cuenta) => cuenta.saldo < 0);
     const monthlyDeudores = ordenesTrabajo.filter(
       (orden) => orden.saldoPendiente > 0,
     );
-
     const monthlyChequesImputados = cheques.filter((cheque) => {
       if (cheque.estado !== "imputado" || !cheque.fechaImputacion) return false;
-
       const date = new Date(cheque.fechaImputacion);
-
       return (
         date.getFullYear() === Number(year) &&
         date.getMonth() === Number(month) - 1
@@ -157,26 +165,23 @@ export function BusinessExpenses() {
       (sum, orden) => sum + orden.monto,
       0,
     );
-
     const totalIngresosCheques = monthlyChequesImputados.reduce(
       (sum, cheque) => sum + cheque.monto,
       0,
     );
 
-    const totalEgresos = monthlyExpenses.reduce(
-      (sum, expense) => sum + expense.total,
-      0,
-    );
+    // Sumar gastos normales y de proveedores
+    const totalEgresos =
+      monthlyExpenses.reduce((sum, expense) => sum + expense.total, 0) +
+      monthlyProviderExpenses.reduce((sum, gasto) => sum + gasto.total, 0);
 
     const totalDeudas = Math.abs(
       monthlyDebts.reduce((sum, cuenta) => sum + cuenta.saldo, 0),
     );
-
     const totalDeudores = monthlyDeudores.reduce(
       (sum, orden) => sum + orden.saldoPendiente,
       0,
     );
-
     const clientesUnicosConDeuda = [
       ...new Set(monthlyDeudores.map((orden) => orden.cliente)),
     ];
@@ -184,6 +189,7 @@ export function BusinessExpenses() {
     return {
       ordenes: monthlyOrdenes,
       expenses: monthlyExpenses,
+      providerExpenses: monthlyProviderExpenses,
       debts: monthlyDebts,
       deudores: monthlyDeudores,
       clientesUnicosConDeuda,
@@ -464,40 +470,64 @@ export function BusinessExpenses() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {monthlyData.expenses.length > 0 ? (
-                        monthlyData.expenses.map((expense) => (
-                          <TableRow key={expense.id}>
-                            <TableCell className="text-sm">
-                              {new Date(expense.fecha).toLocaleDateString(
-                                "es-AR",
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
-                                {expense.categoria}
-                              </span>
-                            </TableCell>
-                            <TableCell
-                              className="max-w-xs truncate"
-                              title={expense.descripcion}
-                            >
-                              {expense.descripcion}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold text-red-600">
-                              ${expense.total.toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
+                      {/* Gastos normales */}
+                      {monthlyData.expenses.map((expense) => (
+                        <TableRow key={expense.id}>
+                          <TableCell className="text-sm">
+                            {new Date(expense.fecha).toLocaleDateString(
+                              "es-AR",
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
+                              {expense.categoria}
+                            </span>
+                          </TableCell>
                           <TableCell
-                            colSpan={4}
-                            className="text-center py-8 text-gray-500"
+                            className="max-w-xs truncate"
+                            title={expense.descripcion}
                           >
-                            No hay gastos registrados en este mes
+                            {expense.descripcion}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-red-600">
+                            ${expense.total.toFixed(2)}
                           </TableCell>
                         </TableRow>
-                      )}
+                      ))}
+                      {/* Gastos de proveedores */}
+                      {monthlyData.providerExpenses.map((gasto) => (
+                        <TableRow key={gasto.id}>
+                          <TableCell className="text-sm">
+                            {new Date(gasto.fecha).toLocaleDateString("es-AR")}
+                          </TableCell>
+                          <TableCell>
+                            <span className="px-2 py-1 bg-red-100 rounded-full text-xs">
+                              Proveedor
+                            </span>
+                          </TableCell>
+                          <TableCell
+                            className="max-w-xs truncate"
+                            title={gasto.detalleProducto}
+                          >
+                            {gasto.detalleProducto}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-red-600">
+                            ${gasto.total.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {/* Si no hay gastos */}
+                      {monthlyData.expenses.length === 0 &&
+                        monthlyData.providerExpenses.length === 0 && (
+                          <TableRow>
+                            <TableCell
+                              colSpan={4}
+                              className="text-center py-8 text-gray-500"
+                            >
+                              No hay gastos registrados en este mes
+                            </TableCell>
+                          </TableRow>
+                        )}
                     </TableBody>
                   </Table>
                 </div>
