@@ -34,25 +34,45 @@ async function syncVehicles() {
 async function syncOrdenesTrabajo() {
   const orders = await db.ordenesTrabajo.toArray();
 
-  // ELIMINAMOS el campo 'total' antes de enviar a Supabase para evitar el error
-  const ordersAdapted = orders.map(({ total, ...rest }) => ({
-    ...rest,
-    // Asegúrate de que los nombres de abajo coincidan con tu tabla en Supabase
-    saldoPendiente: Number(rest.saldoPendiente) || 0,
-    // Si en Supabase la columna se llama diferente, ejemplo 'monto_total', asígnala aquí:
-    // monto_total: Number(total) || 0
-  }));
+  const ordersAdapted = orders.map((o, index) => {
+    // 1. CORRECCIÓN DE FECHA: De DD/MM/YYYY a YYYY-MM-DD
+    let fechaFormateada = o.fecha;
+    if (o.fecha && o.fecha.includes("/")) {
+      const [day, month, year] = o.fecha.split("/");
+      fechaFormateada = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
+
+    return {
+      id: o.id,
+      // 2. CORRECCIÓN DE DUPLICADOS:
+      // Si el numeroOT es igual, le pegamos el ID para que sea único en la nube
+      // mientras arreglas la lógica de generación de números.
+      numeroOT:
+        o.numeroOT === "OT-001" ? `OT-001-${o.id.slice(0, 4)}` : o.numeroOT,
+
+      vehicleId: o.vehicleId,
+      patente: o.patente,
+      cliente: o.cliente,
+      fecha: fechaFormateada,
+      monto: Number(o.monto) || 0,
+      total: Number(o.total) || Number(o.monto) || 0,
+      saldoPendiente: Number(o.saldoPendiente) || 0,
+      estado: o.estado?.toLowerCase() || "pendiente",
+      tecnico: o.tecnico || "",
+      lavado: o.lavado === "Si" || o.lavado === true, // Mapeo de "Si/No" a Boolean
+      entregasCuenta: Array.isArray(o.entregasCuenta) ? o.entregasCuenta : [],
+    };
+  });
 
   const { error } = await supabase
     .from("ordenesTrabajo")
     .upsert(ordersAdapted, { onConflict: "id" });
 
   if (error) {
-    console.error("Error crítico en ordenesTrabajo:", error.message);
-    throw new Error(`Ordenes: ${error.message}`);
+    console.error("Error al subir OT corregidas:", error.message);
+    throw error;
   }
 }
-
 async function syncExpenses() {
   const expenses = await db.expenses.toArray();
   const expensesAdapted = expenses.map((e) => ({

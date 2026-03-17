@@ -48,6 +48,7 @@ export function WorkOrders() {
 
   const loadData = async () => {
     const savedOrders = await db.ordenesTrabajo.toArray();
+    console.log(savedOrders);
     const savedVehicles = await db.vehicles.toArray();
 
     setOrders(savedOrders);
