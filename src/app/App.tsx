@@ -4,6 +4,7 @@ import { Toaster } from "./components/ui/sonner";
 import { useEffect } from "react";
 import { syncAll } from "../services/syncService";
 import { pullFromSupabase } from "../services/pullService";
+import { db } from "../db";
 
 export default function App() {
   // 1. Efecto para Carga Inicial y Ciclo Automático
@@ -40,15 +41,15 @@ export default function App() {
       // Intentar subirlo a la nube de inmediato si hay internet
       if (navigator.onLine) {
         await syncAll();
-        toast.success("Guardado y sincronizado con la nube");
+        console.log("Guardado y sincronizado con la nube");
       } else {
-        toast.warning(
+        console.log(
           "Guardado localmente (sin internet). Se sincronizará luego.",
         );
       }
     } catch (error) {
       console.error("Error al guardar:", error);
-      toast.error("Error al guardar los datos");
+      console.log("Error al guardar los datos");
     }
   };
 

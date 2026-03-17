@@ -33,17 +33,24 @@ async function syncVehicles() {
 
 async function syncOrdenesTrabajo() {
   const orders = await db.ordenesTrabajo.toArray();
-  const ordersAdapted = orders.map((o) => ({
-    ...o,
-    total: Number(o.total) || 0,
-    saldoPendiente: Number(o.saldoPendiente) || 0,
+
+  // ELIMINAMOS el campo 'total' antes de enviar a Supabase para evitar el error
+  const ordersAdapted = orders.map(({ total, ...rest }) => ({
+    ...rest,
+    // Asegúrate de que los nombres de abajo coincidan con tu tabla en Supabase
+    saldoPendiente: Number(rest.saldoPendiente) || 0,
+    // Si en Supabase la columna se llama diferente, ejemplo 'monto_total', asígnala aquí:
+    // monto_total: Number(total) || 0
   }));
 
   const { error } = await supabase
     .from("ordenesTrabajo")
     .upsert(ordersAdapted, { onConflict: "id" });
 
-  if (error) throw new Error(`Ordenes: ${error.message}`);
+  if (error) {
+    console.error("Error crítico en ordenesTrabajo:", error.message);
+    throw new Error(`Ordenes: ${error.message}`);
+  }
 }
 
 async function syncExpenses() {
