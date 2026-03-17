@@ -200,44 +200,17 @@ export function ChequeForm({
 
             <div>
               <Label htmlFor="destino">Destino (A quién lo entregué) *</Label>
-              {empresas.length === 0 ? (
-                <>
-                  <Select disabled value="">
-                    <SelectTrigger>
-                      <SelectValue placeholder="No hay proveedores registrados" />
-                    </SelectTrigger>
-                  </Select>
-                  <p className="text-xs text-red-500 mt-1">
-                    No hay proveedores registrados en cuentas corrientes.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Select
-                    value={formData.destino}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, destino: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar proveedor..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Proveedores</SelectLabel>
-                        {empresas.map((proveedor) => (
-                          <SelectItem key={proveedor} value={proveedor}>
-                            {proveedor}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Selecciona un proveedor registrado
-                  </p>
-                </>
-              )}
+              <Input
+                id="destino"
+                placeholder="Escribe el destino del cheque..."
+                value={formData.destino}
+                onChange={(e) =>
+                  setFormData({ ...formData, destino: e.target.value })
+                }
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Escribe el nombre del proveedor o destinatario del cheque
+              </p>
             </div>
 
             <div className="col-span-2">
@@ -252,10 +225,40 @@ export function ChequeForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="en-cartera">En Cartera</SelectItem>
-                  <SelectItem value="entregado">Entregado</SelectItem>
-                  <SelectItem value="cobrado">Cobrado</SelectItem>
-                  <SelectItem value="imputado">Imputado</SelectItem>
+                  <div>
+                    <SelectItem value="en-cartera">
+                      <span
+                        title="Cheque recibido, aún no entregado ni cobrado."
+                        style={{ cursor: "help" }}
+                      >
+                        En Cartera
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="entregado">
+                      <span
+                        title="Cheque entregado a un proveedor."
+                        style={{ cursor: "help" }}
+                      >
+                        Entregado
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="cobrado">
+                      <span
+                        title="Cheque cobrado en banco."
+                        style={{ cursor: "help" }}
+                      >
+                        Cobrado
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="imputado">
+                      <span
+                        title="Cheque usado para saldar deuda de cliente."
+                        style={{ cursor: "help" }}
+                      >
+                        Imputado
+                      </span>
+                    </SelectItem>
+                  </div>
                 </SelectContent>
               </Select>
             </div>

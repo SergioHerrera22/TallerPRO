@@ -7,7 +7,12 @@ export async function pullFromSupabase() {
   const { data: vehicles } = await supabase.from("vehicles").select("*");
 
   if (vehicles) {
-    await db.vehicles.bulkPut(vehicles);
+    // Asegurar que cada vehículo tenga el campo kilometros
+    const vehiclesAdapted = vehicles.map((v) => ({
+      ...v,
+      kilometros: typeof v.kilometros === "number" ? v.kilometros : 0,
+    }));
+    await db.vehicles.bulkPut(vehiclesAdapted);
   }
 
   const { data: ordenes } = await supabase.from("ordenesTrabajo").select("*");

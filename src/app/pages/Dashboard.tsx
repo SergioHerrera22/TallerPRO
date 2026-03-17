@@ -92,6 +92,9 @@ export function Dashboard() {
       createdAt: new Date().toISOString(),
     };
 
+    // Guardar kilometros en supabase si corresponde
+    // await supabase.from('vehicles').insert([{ ...newVehicle }]);
+
     await db.vehicles.add(newVehicle);
 
     setVehicles([...vehicles, newVehicle]);
@@ -119,8 +122,35 @@ export function Dashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <Card className="lg:col-span-2">
+      {/* Estadística de autos cargados y botón */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Car className="h-5 w-5" />
+              Autos cargados
+            </CardTitle>
+            <CardDescription className="text-white/80">
+              Total de vehículos registrados en el sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-3xl font-bold">{vehicles.length}</span>
+              <Button
+                variant="secondary"
+                className="bg-white text-blue-600 font-semibold"
+                onClick={() => setShowVehicleForm(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Registrar nuevo auto
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Buscador de vehículos */}
+        <Card>
           <CardHeader>
             <CardTitle>Buscar Vehículo</CardTitle>
             <CardDescription>
@@ -163,89 +193,6 @@ export function Dashboard() {
                 </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Estadísticas</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Car className="h-8 w-8 text-blue-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Total Vehículos</p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {vehicles.length}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <span className="h-8 w-8 flex items-center justify-center rounded-full bg-red-200 text-red-700 font-bold text-lg">
-                  $
-                </span>
-                <div>
-                  <p className="text-sm text-gray-600">
-                    Total Deudas en Cuentas Corrientes
-                  </p>
-                  <p className="text-2xl font-semibold text-red-700">
-                    {deudaCuentasCorrientes < 0
-                      ? deudaCuentasCorrientes.toLocaleString("es-AR", {
-                          style: "currency",
-                          currency: "ARS",
-                        })
-                      : "$0,00"}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <span className="h-8 w-8 flex items-center justify-center rounded-full bg-green-200 text-green-700 font-bold text-lg">
-                  $
-                </span>
-                <div>
-                  <p className="text-sm text-gray-600">
-                    Total Gastos Realizados
-                  </p>
-                  <p className="text-2xl font-semibold text-green-700">
-                    {egresosTotales.toLocaleString("es-AR", {
-                      style: "currency",
-                      currency: "ARS",
-                    })}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-yellow-100 rounded-lg border border-yellow-300">
-              <div className="flex items-center gap-3">
-                <span className="h-8 w-8 flex items-center justify-center rounded-full bg-yellow-200 text-yellow-700 font-bold text-lg">
-                  Σ
-                </span>
-                <div>
-                  <p className="text-sm text-gray-700 font-semibold">
-                    Compromiso Total (Egresos + Deudas)
-                  </p>
-                  <p className="text-2xl font-bold text-yellow-800">
-                    {(egresosTotales + deudaCuentasCorrientes).toLocaleString(
-                      "es-AR",
-                      { style: "currency", currency: "ARS" },
-                    )}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <Button
-              onClick={() => setShowVehicleForm(true)}
-              className="w-full"
-              variant="outline"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Vehículo
-            </Button>
           </CardContent>
         </Card>
       </div>

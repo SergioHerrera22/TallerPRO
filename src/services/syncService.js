@@ -19,11 +19,14 @@ export async function syncAll() {
 
 async function syncVehicles() {
   const vehicles = await db.vehicles.toArray();
-
+  // Adaptar para asegurar que kilometros se envía correctamente
+  const vehiclesAdapted = vehicles.map((v) => ({
+    ...v,
+    kilometros: typeof v.kilometros === "number" ? v.kilometros : 0,
+  }));
   const { error } = await supabase
     .from("vehicles")
-    .upsert(vehicles, { onConflict: "id" });
-
+    .upsert(vehiclesAdapted, { onConflict: "id" });
   if (error) console.error("Error vehicles:", error);
 }
 
@@ -31,7 +34,7 @@ async function syncOrdenesTrabajo() {
   const orders = await db.ordenesTrabajo.toArray();
 
   const { error } = await supabase
-    .from("ordenestrabajo")
+    .from("ordenesTrabajo")
     .upsert(orders, { onConflict: "id" });
 
   if (error) console.error("Error ordenes:", error);

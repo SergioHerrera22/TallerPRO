@@ -7,6 +7,7 @@ export interface Vehicle {
   color: string;
   cliente: string;
   telefono: string;
+  kilometros: number;
   createdAt: string;
 }
 

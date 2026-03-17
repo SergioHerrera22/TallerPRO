@@ -189,6 +189,10 @@ export function VehicleDetail() {
             <div>
               <p className="text-sm text-gray-600">Propietario</p>
               <p className="font-semibold">{vehicle.cliente}</p>
+              <p className="text-sm text-gray-600 mt-2">Kilómetros</p>
+              <p className="font-semibold">
+                {vehicle.kilometros?.toLocaleString("es-AR") ?? "No informado"}
+              </p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Teléfono</p>

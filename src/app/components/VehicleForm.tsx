@@ -11,7 +11,11 @@ interface VehicleFormProps {
   onCancel: () => void;
 }
 
-export function VehicleForm({ patente = "", onSubmit, onCancel }: VehicleFormProps) {
+export function VehicleForm({
+  patente = "",
+  onSubmit,
+  onCancel,
+}: VehicleFormProps) {
   const [formData, setFormData] = useState({
     patente: patente.toUpperCase(),
     marca: "",
@@ -20,6 +24,7 @@ export function VehicleForm({ patente = "", onSubmit, onCancel }: VehicleFormPro
     color: "",
     cliente: "",
     telefono: "",
+    kilometros: 0,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -127,6 +132,19 @@ export function VehicleForm({ patente = "", onSubmit, onCancel }: VehicleFormPro
                 value={formData.telefono}
                 onChange={handleChange}
                 placeholder="011-4444-5555"
+                required
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="kilometros">Kilómetros *</Label>
+              <Input
+                id="kilometros"
+                name="kilometros"
+                type="number"
+                value={formData.kilometros}
+                onChange={handleChange}
+                placeholder="Ej: 120000"
+                min="0"
                 required
               />
             </div>

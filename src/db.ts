@@ -28,7 +28,12 @@ class TallerDB extends Dexie {
         patente,
         cliente,
         marca,
-        modelo
+        modelo,
+        anio,
+        color,
+        telefono,
+        kilometros,
+        createdAt
       `,
 
       services: `
