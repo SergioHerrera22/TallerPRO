@@ -97,17 +97,20 @@ export function ChequeForm({
     }
 
     onSubmit(formData);
-    setFormData({
-      fechaRecepcion: new Date().toISOString().split("T")[0],
-      fechaCobro: new Date().toISOString().split("T")[0],
-      emisor: "",
-      destino: "",
-      estado: "en-cartera",
-      monto: 0,
-      numero: "",
-      observaciones: "",
-      clienteId: undefined,
-    });
+    // Solo resetear el formulario cuando se está creando un cheque nuevo.
+    if (!initialData) {
+      setFormData({
+        fechaRecepcion: new Date().toISOString().split("T")[0],
+        fechaCobro: new Date().toISOString().split("T")[0],
+        emisor: "",
+        destino: "",
+        estado: "en-cartera",
+        monto: 0,
+        numero: "",
+        observaciones: "",
+        clienteId: undefined,
+      });
+    }
   };
 
   return (

@@ -427,7 +427,11 @@ export function CheckManagement() {
           setShowForm(false);
           setEditingCheque(undefined);
         }}
-        onSubmit={editingCheque ? handleUpdateCheque : handleCreateCheque}
+        onSubmit={(data) =>
+          editingCheque
+            ? handleUpdateCheque({ ...editingCheque, ...data })
+            : handleCreateCheque(data)
+        }
         initialData={editingCheque}
       />
 
