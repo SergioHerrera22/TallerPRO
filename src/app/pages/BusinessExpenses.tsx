@@ -45,6 +45,7 @@ import {
 
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
+import { sync } from "../../services/syncEngine";
 
 import {
   OrdenTrabajo,
