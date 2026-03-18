@@ -22,6 +22,7 @@ import { ArrowLeft, Plus, Wrench, Calendar, Edit2, X } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { dataRepository } from "../../services/dataRepository";
+import { generateNextOTNumber } from "../../services/orderNumberService";
 
 export function VehicleDetail() {
   const [showEditVehicleForm, setShowEditVehicleForm] = useState(false);
@@ -34,7 +35,6 @@ export function VehicleDetail() {
   const [selectedOrder, setSelectedOrder] = useState<OrdenTrabajo | null>(null);
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<OrdenTrabajo | undefined>();
-  const [nextOTNumber, setNextOTNumber] = useState(1);
 
   useEffect(() => {
     loadVehicle();
@@ -72,21 +72,14 @@ export function VehicleDetail() {
     setOrders(vehicleOrders);
   };
 
-  const generateOTNumber = () => {
-    const newNumber = nextOTNumber;
-
-    setNextOTNumber(newNumber + 1);
-
-    return `OT-${String(newNumber).padStart(3, "0")}`;
-  };
-
   const handleAddOrder = async (
     orderData: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
   ) => {
+    const numeroOT = await generateNextOTNumber();
     const newOrder: OrdenTrabajo = {
       ...orderData,
       id: createId(),
-      numeroOT: generateOTNumber(),
+      numeroOT,
       createdAt: new Date().toISOString(),
     };
 

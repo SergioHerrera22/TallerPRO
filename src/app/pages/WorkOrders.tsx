@@ -31,6 +31,7 @@ import { OrderDetailModal } from "../components/OrderDetailModal";
 import { Plus, Search, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 import { dataRepository } from "../../services/dataRepository";
+import { generateNextOTNumber } from "../../services/orderNumberService";
 
 export function WorkOrders() {
   const [orders, setOrders] = useState<OrdenTrabajo[]>([]);
@@ -41,7 +42,6 @@ export function WorkOrders() {
   const [editingOrder, setEditingOrder] = useState<OrdenTrabajo | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterEstado, setFilterEstado] = useState<string>("all");
-  const [nextOTNumber, setNextOTNumber] = useState(1);
 
   useEffect(() => {
     loadData();
@@ -64,25 +64,18 @@ export function WorkOrders() {
     return () => window.removeEventListener("app:refreshData", handler);
   }, []);
 
-  const generateOTNumber = () => {
-    const newNumber = nextOTNumber;
-
-    setNextOTNumber(newNumber + 1);
-
-    return `OT-${String(newNumber).padStart(3, "0")}`;
-  };
-
   const handleCreateOrder = async (
     data: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
   ) => {
     const vehicle = vehicles.find((v) => v.id === data.vehicleId);
 
     const telefono = vehicle?.telefono || "";
+    const numeroOT = await generateNextOTNumber();
 
     const newOrder: OrdenTrabajo = {
       ...data,
       id: createId(),
-      numeroOT: generateOTNumber(),
+      numeroOT,
       telefono,
       createdAt: new Date().toISOString(),
     };
