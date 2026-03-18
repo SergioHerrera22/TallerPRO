@@ -52,7 +52,7 @@ export function WorkOrders() {
     console.log(savedOrders);
     const savedVehicles = await db.vehicles.toArray();
 
-    setOrders(savedOrders);
+    setOrders(savedOrders.filter((o) => !o.deleted));
     setVehicles(savedVehicles);
   };
 

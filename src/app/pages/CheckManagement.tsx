@@ -77,10 +77,10 @@ export function CheckManagement() {
       db.vehicles.toArray(),
       db.cuentasCorrientes.toArray(),
     ]);
-    setCheques(c);
-    setOrdenesTrabajo(ot);
-    setVehicles(v);
-    setCuentasCorrientes(cc);
+    setCheques(c.filter((ch) => !ch.deleted));
+    setOrdenesTrabajo(ot.filter((o) => !o.deleted));
+    setVehicles(v.filter((veh) => !veh.deleted));
+    setCuentasCorrientes(cc.filter((cuenta) => !cuenta.deleted));
   };
 
   // --- Carga de Datos ---

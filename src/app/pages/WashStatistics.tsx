@@ -41,10 +41,11 @@ export function WashStatistics() {
 
   const loadStatistics = async () => {
     const allOrders = await db.ordenesTrabajo.toArray();
+    const activeOrders = allOrders.filter((o) => !o.deleted);
 
-    setOrders(allOrders);
+    setOrders(activeOrders);
 
-    const washOrders = allOrders.filter((o) => o.lavado);
+    const washOrders = activeOrders.filter((o) => o.lavado);
 
     const now = new Date();
 

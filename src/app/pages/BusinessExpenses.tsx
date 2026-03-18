@@ -89,7 +89,7 @@ export function BusinessExpenses() {
           db.vehicles.toArray(),
         ]);
 
-      setOrdenesTrabajo(ordenes);
+      setOrdenesTrabajo(ordenes.filter((o) => !o.deleted));
       setExpenses(gastos);
       setCuentasCorrientes(cuentas);
       setCheques(chequesDB);

@@ -69,7 +69,7 @@ export function VehicleDetail() {
       .reverse()
       .sortBy("fecha");
 
-    setOrders(vehicleOrders);
+    setOrders(vehicleOrders.filter((o) => !o.deleted));
   };
 
   const handleAddOrder = async (
