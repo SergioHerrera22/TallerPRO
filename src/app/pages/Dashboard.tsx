@@ -18,6 +18,7 @@ import { VehicleForm } from "../components/VehicleForm";
 import { Search, Plus, Car, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { createId } from "../../utils";
+import { dataRepository } from "../../services/dataRepository";
 export function Dashboard() {
   const navigate = useNavigate();
 
@@ -33,6 +34,17 @@ export function Dashboard() {
     loadVehicles();
     loadDeudaCuentasCorrientes();
     loadEgresosTotales();
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      loadVehicles();
+      loadDeudaCuentasCorrientes();
+      loadEgresosTotales();
+    };
+
+    window.addEventListener("app:refreshData", handler);
+    return () => window.removeEventListener("app:refreshData", handler);
   }, []);
 
   const loadVehicles = async () => {
@@ -95,7 +107,7 @@ export function Dashboard() {
     // Guardar kilometros en supabase si corresponde
     // await supabase.from('vehicles').insert([{ ...newVehicle }]);
 
-    await db.vehicles.add(newVehicle);
+    await dataRepository.saveVehicle(newVehicle);
 
     setVehicles([...vehicles, newVehicle]);
     setShowVehicleForm(false);

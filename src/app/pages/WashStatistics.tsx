@@ -34,6 +34,11 @@ export function WashStatistics() {
     loadStatistics();
   }, []);
 
+  useEffect(() => {
+    window.addEventListener("app:refreshData", loadStatistics);
+    return () => window.removeEventListener("app:refreshData", loadStatistics);
+  }, []);
+
   const loadStatistics = async () => {
     const allOrders = await db.ordenesTrabajo.toArray();
 

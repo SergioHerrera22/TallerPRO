@@ -30,6 +30,7 @@ import { OrderDetailModal } from "../components/OrderDetailModal";
 
 import { Plus, Search, Edit2 } from "lucide-react";
 import { toast } from "sonner";
+import { dataRepository } from "../../services/dataRepository";
 
 export function WorkOrders() {
   const [orders, setOrders] = useState<OrdenTrabajo[]>([]);
@@ -55,6 +56,14 @@ export function WorkOrders() {
     setVehicles(savedVehicles);
   };
 
+  useEffect(() => {
+    const handler = () => {
+      loadData();
+    };
+    window.addEventListener("app:refreshData", handler);
+    return () => window.removeEventListener("app:refreshData", handler);
+  }, []);
+
   const generateOTNumber = () => {
     const newNumber = nextOTNumber;
 
@@ -78,7 +87,7 @@ export function WorkOrders() {
       createdAt: new Date().toISOString(),
     };
 
-    await db.ordenesTrabajo.add(newOrder);
+    await dataRepository.saveOrdenTrabajo(newOrder);
 
     setOrders([...orders, newOrder]);
 
@@ -98,7 +107,7 @@ export function WorkOrders() {
       ...data,
     };
 
-    await db.ordenesTrabajo.put(updatedOrder);
+    await dataRepository.saveOrdenTrabajo(updatedOrder);
 
     setOrders(orders.map((o) => (o.id === editingOrder.id ? updatedOrder : o)));
 
@@ -112,7 +121,7 @@ export function WorkOrders() {
     if (!confirm("¿Confirmá que querés eliminar esta orden de trabajo?"))
       return;
 
-    await db.ordenesTrabajo.delete(orderId);
+    await dataRepository.deleteOrdenTrabajo(orderId);
 
     setOrders(orders.filter((o) => o.id !== orderId));
 

@@ -47,6 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { dataRepository } from "../../services/dataRepository";
 
 export function CheckManagement() {
   // --- Estados Principales ---
@@ -69,21 +70,27 @@ export function CheckManagement() {
   const [selectedClienteId, setSelectedClienteId] = useState("");
   const [selectedCuentaId, setSelectedCuentaId] = useState("");
 
+  const loadData = async () => {
+    const [c, ot, v, cc] = await Promise.all([
+      db.cheques.toArray(),
+      db.ordenesTrabajo.toArray(),
+      db.vehicles.toArray(),
+      db.cuentasCorrientes.toArray(),
+    ]);
+    setCheques(c);
+    setOrdenesTrabajo(ot);
+    setVehicles(v);
+    setCuentasCorrientes(cc);
+  };
+
   // --- Carga de Datos ---
   useEffect(() => {
-    const loadData = async () => {
-      const [c, ot, v, cc] = await Promise.all([
-        db.cheques.toArray(),
-        db.ordenesTrabajo.toArray(),
-        db.vehicles.toArray(),
-        db.cuentasCorrientes.toArray(),
-      ]);
-      setCheques(c);
-      setOrdenesTrabajo(ot);
-      setVehicles(v);
-      setCuentasCorrientes(cc);
-    };
     loadData();
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("app:refreshData", loadData);
+    return () => window.removeEventListener("app:refreshData", loadData);
   }, []);
 
   // --- Lógica de Imputación (Corregida) ---
@@ -109,7 +116,7 @@ export function CheckManagement() {
       };
 
       // Actualizar DB y Estado
-      await db.cuentasCorrientes.put(empresaActualizada);
+      await dataRepository.saveCuentaCorriente(empresaActualizada);
 
       const updatedCheques = cheques.map((c) =>
         c.id === selectedCheque.id
@@ -123,7 +130,7 @@ export function CheckManagement() {
           : c,
       );
 
-      await db.cheques.bulkPut(updatedCheques);
+      await Promise.all(updatedCheques.map((c) => dataRepository.saveCheque(c)));
       setCheques(updatedCheques);
       setCuentasCorrientes((prev) =>
         prev.map((item) =>
@@ -193,8 +200,8 @@ export function CheckManagement() {
           : c,
       );
 
-      await db.cheques.bulkPut(updatedCheques);
-      await db.ordenesTrabajo.bulkPut(updatedOrdenes);
+      await Promise.all(updatedCheques.map((c) => dataRepository.saveCheque(c)));
+      await Promise.all(updatedOrdenes.map((o) => dataRepository.saveOrdenTrabajo(o)));
       setCheques(updatedCheques);
       setOrdenesTrabajo(updatedOrdenes);
 
@@ -214,14 +221,14 @@ export function CheckManagement() {
   // --- CRUD Básico ---
   const handleCreateCheque = async (data: any) => {
     const newCheque = { ...data, id: crypto.randomUUID() };
-    await db.cheques.add(newCheque);
+    await dataRepository.saveCheque(newCheque);
     setCheques([...cheques, newCheque]);
     setShowForm(false);
     toast.success("Cheque registrado");
   };
 
   const handleUpdateCheque = async (data: any) => {
-    await db.cheques.put(data);
+    await dataRepository.saveCheque(data);
     setCheques(cheques.map((c) => (c.id === data.id ? data : c)));
     setShowForm(false);
     setEditingCheque(undefined);
@@ -229,7 +236,7 @@ export function CheckManagement() {
   };
 
   const handleDeleteCheque = async (id: string) => {
-    await db.cheques.delete(id);
+    await dataRepository.deleteCheque(id);
     setCheques(cheques.filter((c) => c.id !== id));
     setShowDetailModal(false);
     toast.success("Cheque eliminado");

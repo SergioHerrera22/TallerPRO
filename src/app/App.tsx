@@ -2,17 +2,14 @@ import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { Toaster } from "./components/ui/sonner";
 import { useEffect } from "react";
-import { syncAll } from "../services/syncService";
-import { pullFromSupabase } from "../services/pullService";
-import { db } from "../db";
+import { sync } from "../services/syncEngine";
 
 export default function App() {
   // 1. Efecto para Carga Inicial y Ciclo Automático
   useEffect(() => {
     const initApp = async () => {
       console.log("App iniciada: Sincronizando datos...");
-      await pullFromSupabase(); // Trae lo de otros
-      await syncAll(); // Sube lo que tengas pendiente local
+      await sync();
     };
 
     initApp();
@@ -20,7 +17,7 @@ export default function App() {
     // Configurar el intervalo de 1 minuto una sola vez al cargar la app
     const interval = setInterval(() => {
       if (navigator.onLine) {
-        syncAll();
+        sync();
         console.log(
           "Sincronización automática ejecutada:",
           new Date().toLocaleTimeString(),
@@ -28,30 +25,17 @@ export default function App() {
       }
     }, 60000);
 
+    const handleOnline = () => {
+      sync();
+    };
+    window.addEventListener("online", handleOnline);
+
     // Limpiar el intervalo cuando se cierra la app
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("online", handleOnline);
+    };
   }, []);
-
-  // 2. Función de Guardado (Fuera del useEffect)
-  const onGuardarAlgo = async (nuevoItem) => {
-    try {
-      // Primero en IndexedDB para respuesta instantánea en la UI
-      await db.cheques.add(nuevoItem);
-
-      // Intentar subirlo a la nube de inmediato si hay internet
-      if (navigator.onLine) {
-        await syncAll();
-        console.log("Guardado y sincronizado con la nube");
-      } else {
-        console.log(
-          "Guardado localmente (sin internet). Se sincronizará luego.",
-        );
-      }
-    } catch (error) {
-      console.error("Error al guardar:", error);
-      console.log("Error al guardar los datos");
-    }
-  };
 
   return (
     <>

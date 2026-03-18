@@ -11,6 +11,30 @@ import {
   Cheque,
 } from "./app/types/index";
 
+export type OutboxOperation = "upsert" | "delete";
+
+export interface OutboxEntry {
+  id: string;
+  table:
+    | "vehicles"
+    | "services"
+    | "expenses"
+    | "ordenesTrabajo"
+    | "cuentasCorrientes"
+    | "cheques";
+  op: OutboxOperation;
+  entityId: string;
+  payload: unknown;
+  createdAt: string;
+  tries: number;
+  lastError?: string;
+}
+
+export interface SyncMeta {
+  key: string;
+  value: string;
+}
+
 class TallerDB extends Dexie {
   vehicles!: Table<Vehicle>;
   services!: Table<Service>;
@@ -18,6 +42,8 @@ class TallerDB extends Dexie {
   ordenesTrabajo!: Table<OrdenTrabajo>;
   cuentasCorrientes!: Table<CuentaCorriente>;
   cheques!: Table<Cheque>;
+  outbox!: Table<OutboxEntry>;
+  sync_meta!: Table<SyncMeta>;
 
   constructor() {
     super("TallerPro");
@@ -74,6 +100,86 @@ class TallerDB extends Dexie {
         fechaCobro,
         estado,
         clienteId
+      `,
+    });
+
+    // v2: agrega outbox + meta para sincronización robusta
+    this.version(2).stores({
+      vehicles: `
+        id,
+        patente,
+        cliente,
+        marca,
+        modelo,
+        anio,
+        color,
+        telefono,
+        kilometros,
+        createdAt,
+        updatedAt,
+        deleted
+      `,
+
+      services: `
+        id,
+        vehicleId,
+        fecha,
+        tipo,
+        tecnico,
+        updatedAt,
+        deleted
+      `,
+
+      ordenesTrabajo: `
+        id,
+        numeroOT,
+        vehicleId,
+        patente,
+        cliente,
+        fecha,
+        estado,
+        tecnico,
+        updatedAt,
+        deleted
+      `,
+
+      expenses: `
+        id,
+        fecha,
+        categoria,
+        proveedor,
+        updatedAt,
+        deleted
+      `,
+
+      cuentasCorrientes: `
+        id,
+        entidad,
+        tipo,
+        updatedAt,
+        deleted
+      `,
+
+      cheques: `
+        id,
+        fechaCobro,
+        estado,
+        clienteId,
+        updatedAt,
+        deleted
+      `,
+
+      outbox: `
+        id,
+        table,
+        op,
+        entityId,
+        createdAt,
+        tries
+      `,
+
+      sync_meta: `
+        key
       `,
     });
   }

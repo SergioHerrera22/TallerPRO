@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from "./ui/dialog";
 import { toast } from "sonner";
+import { db } from "../../db";
 
 interface ChequeFormProps {
   isOpen: boolean;
@@ -51,27 +52,19 @@ export function ChequeForm({
   const [empresas, setEmpresas] = useState<string[]>([]);
 
   useEffect(() => {
-    // Cargar lista de clientes únicos de los vehículos registrados
-    const storedVehicles = localStorage.getItem("vehicles");
-    if (storedVehicles) {
-      const vehicles: Vehicle[] = JSON.parse(storedVehicles);
-      const clientesUnicos = [
-        ...new Set(vehicles.map((v) => v.cliente)),
-      ].sort();
+    const load = async () => {
+      const vehicles: Vehicle[] = await db.vehicles.toArray();
+      const clientesUnicos = [...new Set(vehicles.map((v) => v.cliente))].sort();
       setClientes(clientesUnicos);
-    }
-    // Cargar proveedores desde la base de datos
-    const cargarProveedores = async () => {
-      if (window.db && window.db.cuentasCorrientes) {
-        const cuentas = await window.db.cuentasCorrientes.toArray();
-        const proveedores = cuentas
-          .filter((c: any) => c.tipo === "proveedor")
-          .map((c: any) => c.entidad);
-        const proveedoresUnicos = [...new Set(proveedores)].sort();
-        setEmpresas(proveedoresUnicos);
-      }
+
+      const cuentas = await db.cuentasCorrientes.toArray();
+      const proveedores = cuentas
+        .filter((c: any) => c.tipo === "proveedor" && !c.deleted)
+        .map((c: any) => c.entidad);
+      const proveedoresUnicos = [...new Set(proveedores)].sort();
+      setEmpresas(proveedoresUnicos);
     };
-    cargarProveedores();
+    load();
   }, []);
 
   useEffect(() => {

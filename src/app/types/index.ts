@@ -9,6 +9,7 @@ export interface Vehicle {
   telefono: string;
   kilometros: number;
   createdAt: string;
+  updatedAt?: string;
   deleted?: boolean;
 }
 
@@ -22,6 +23,8 @@ export interface Service {
   costo: number;
   tecnico: string;
   observaciones?: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 export interface Expense {
@@ -34,6 +37,8 @@ export interface Expense {
   total: number;
   proveedor?: string;
   metodoPago: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 export interface LineaRepuesto {
@@ -60,6 +65,8 @@ export interface OrdenTrabajo {
   estado: "pendiente" | "en-progreso" | "completada";
   observaciones?: string;
   createdAt: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }
 
 export interface CuentaCorriente {
@@ -69,6 +76,7 @@ export interface CuentaCorriente {
   saldo: number; // Positivo: dinero disponible, Negativo: deuda
   gastos?: GastoProveedor[]; // Solo para proveedores
   updatedAt: string;
+  deleted?: boolean;
 }
 
 export interface GastoProveedor {
@@ -93,4 +101,6 @@ export interface Cheque {
   clienteId?: string; // ID del cliente (viene de vehicles) para imputación
   fechaImputacion?: string; // Fecha cuando se imputó el cheque
   createdAt: string;
+  updatedAt?: string;
+  deleted?: boolean;
 }

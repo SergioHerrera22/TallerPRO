@@ -95,10 +95,6 @@ export function OrderDetailModal({
                 <div class="info-label">Fecha</div>
                 <div class="info-value">${new Date(order.fecha).toLocaleDateString("es-AR")}</div>
               </div>
-              <div class="info-item">
-                <div class="info-label">Monto</div>
-                <div class="info-value">$${order.monto.toFixed(2)}</div>
-              </div>
             </div>
           </div>
 
@@ -140,41 +136,21 @@ export function OrderDetailModal({
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
               <tr>
                 <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">Detalle</th>
-                <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">Precio</th>
               </tr>
               ${order.repuestos
                 .map(
                   (r) => `
               <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #eee;">${r.detalle}</td>
-                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">$${r.precio.toFixed(2)}</td>
               </tr>
               `,
                 )
                 .join("")}
-              <tr style="font-weight: bold;">
-                <td style="padding: 8px; text-align: right;">Subtotal Repuestos:</td>
-                <td style="text-align: right; padding: 8px;">$${(order.repuestos?.reduce((sum, r) => sum + r.precio, 0) || 0).toFixed(2)}</td>
-              </tr>
             </table>
           </div>
           `
               : ""
           }
-
-          <div class="info-section">
-            <h2>Costos</h2>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px;">Mano de Obra:</td>
-                <td style="text-align: right; padding: 8px;">$${order.manoDeObra.toFixed(2)}</td>
-              </tr>
-              <tr style="font-weight: bold; border-top: 2px solid #333;">
-                <td style="padding: 8px; font-size: 16px;">TOTAL:</td>
-                <td style="text-align: right; padding: 8px; font-size: 16px;">$${order.monto.toFixed(2)}</td>
-              </tr>
-            </table>
-          </div>
 
           <div class="info-section">
             <h2>Servicios</h2>

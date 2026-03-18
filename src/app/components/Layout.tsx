@@ -1,17 +1,22 @@
 import { Link, useLocation } from "react-router";
+import { useState } from "react";
 import {
   Car,
-  DollarSign,
   Home,
   FileText,
   CreditCard,
   Droplets,
   Receipt,
   Shield,
+  RefreshCw,
 } from "lucide-react";
+import { Button } from "./ui/button";
+import { toast } from "sonner";
+import { sync } from "../../services/syncEngine";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -26,6 +31,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     { path: "/gestion-financiera", label: "Finanzas", icon: Shield },
   ];
+
+  const showRefreshButton = location.pathname !== "/gestion-financiera";
+
+  const handleRefreshData = async () => {
+    if (isRefreshing) return;
+
+    setIsRefreshing(true);
+    try {
+      const res = await sync();
+      if (!res?.success) toast.error("Error sincronizando datos");
+
+      window.dispatchEvent(new Event("app:refreshData"));
+      toast.success("Datos actualizados");
+    } catch (error) {
+      console.error(error);
+      toast.error("Error sincronizando datos");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -56,6 +81,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 ))}
               </div>
             </div>
+
+            {showRefreshButton && (
+              <div className="flex items-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleRefreshData}
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                  />
+                  Actualizar Datos
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </nav>

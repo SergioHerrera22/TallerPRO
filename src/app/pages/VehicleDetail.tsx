@@ -21,6 +21,7 @@ import { ArrowLeft, Plus, Wrench, Calendar, Edit2, X } from "lucide-react";
 
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
+import { dataRepository } from "../../services/dataRepository";
 
 export function VehicleDetail() {
   const [showEditVehicleForm, setShowEditVehicleForm] = useState(false);
@@ -38,6 +39,15 @@ export function VehicleDetail() {
   useEffect(() => {
     loadVehicle();
     loadOrders();
+  }, [id]);
+
+  useEffect(() => {
+    const handler = () => {
+      loadVehicle();
+      loadOrders();
+    };
+    window.addEventListener("app:refreshData", handler);
+    return () => window.removeEventListener("app:refreshData", handler);
   }, [id]);
 
   const loadVehicle = async () => {
@@ -80,7 +90,7 @@ export function VehicleDetail() {
       createdAt: new Date().toISOString(),
     };
 
-    await db.ordenesTrabajo.add(newOrder);
+    await dataRepository.saveOrdenTrabajo(newOrder);
 
     setOrders([newOrder, ...orders]);
 
@@ -99,7 +109,7 @@ export function VehicleDetail() {
       ...orderData,
     };
 
-    await db.ordenesTrabajo.put(updated);
+    await dataRepository.saveOrdenTrabajo(updated);
 
     setOrders(orders.map((o) => (o.id === editingOrder.id ? updated : o)));
 
@@ -119,7 +129,7 @@ export function VehicleDetail() {
     if (!confirm("¿Confirmá que querés eliminar esta orden de trabajo?"))
       return;
 
-    await db.ordenesTrabajo.delete(orderId);
+    await dataRepository.deleteOrdenTrabajo(orderId);
 
     setOrders(orders.filter((o) => o.id !== orderId));
 

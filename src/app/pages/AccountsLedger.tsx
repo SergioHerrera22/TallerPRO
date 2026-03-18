@@ -46,6 +46,7 @@ import {
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { createId } from "../../utils";
+import { dataRepository } from "../../services/dataRepository";
 
 export function AccountsLedger() {
   // Eliminar gasto de proveedor
@@ -62,7 +63,7 @@ export function AccountsLedger() {
       saldo: cuenta.saldo + gastoAEliminar.total,
       updatedAt: new Date().toISOString(),
     };
-    await db.cuentasCorrientes.put(cuentaActualizada);
+    await dataRepository.saveCuentaCorriente(cuentaActualizada);
     toast.success("Gasto eliminado correctamente");
     await loadCuentas();
   };
@@ -98,6 +99,11 @@ export function AccountsLedger() {
     loadCuentas();
   }, []);
 
+  useEffect(() => {
+    window.addEventListener("app:refreshData", loadCuentas);
+    return () => window.removeEventListener("app:refreshData", loadCuentas);
+  }, []);
+
   const loadCuentas = async () => {
     const cuentasDB = await db.cuentasCorrientes.toArray();
     setCuentas(cuentasDB);
@@ -117,7 +123,7 @@ export function AccountsLedger() {
       updatedAt: new Date().toISOString(),
     };
 
-    await db.cuentasCorrientes.put(cuenta);
+    await dataRepository.saveCuentaCorriente(cuenta);
 
     toast.success(editingCuenta ? "Cuenta actualizada" : "Cuenta creada");
 
@@ -149,7 +155,7 @@ export function AccountsLedger() {
     if (!confirm("¿Confirmá que querés eliminar esta cuenta corriente?"))
       return;
 
-    await db.cuentasCorrientes.delete(id);
+    await dataRepository.deleteCuentaCorriente(id);
 
     toast.success("Cuenta eliminada");
 
@@ -209,7 +215,7 @@ export function AccountsLedger() {
       updatedAt: new Date().toISOString(),
     };
 
-    await db.cuentasCorrientes.put(cuentaActualizada);
+    await dataRepository.saveCuentaCorriente(cuentaActualizada);
 
     toast.success("Gasto agregado");
 
