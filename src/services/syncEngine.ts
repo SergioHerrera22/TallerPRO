@@ -59,9 +59,16 @@ export async function sync(): Promise<{ success: boolean; error?: unknown }> {
       await getOrCreateClientId();
       await pushOutbox();
       await pullIncremental();
+      await db.sync_meta.put({ key: "lastSyncOkAt", value: nowIso() });
+      await db.sync_meta.put({ key: "lastSyncError", value: "" });
+      await db.sync_meta.put({ key: "lastSyncErrorAt", value: "" });
       return { success: true };
     } catch (error) {
       console.error("sync() error", error);
+      const message =
+        (error as any)?.message ? String((error as any).message) : String(error);
+      await db.sync_meta.put({ key: "lastSyncError", value: message });
+      await db.sync_meta.put({ key: "lastSyncErrorAt", value: nowIso() });
       return { success: false, error };
     } finally {
       syncInFlight = null;

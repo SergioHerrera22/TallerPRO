@@ -106,7 +106,7 @@ export function AccountsLedger() {
 
   const loadCuentas = async () => {
     const cuentasDB = await db.cuentasCorrientes.toArray();
-    setCuentas(cuentasDB);
+    setCuentas(cuentasDB.filter((c) => !c.deleted));
   };
 
   const handleSaveCuenta = async () => {
@@ -231,8 +231,16 @@ export function AccountsLedger() {
   };
 
   const filteredCuentas = cuentas.filter((cuenta) => {
-    // Solo mostrar cuentas corrientes (proveedores)
-    return cuenta.tipo === "proveedor";
+    if (cuenta.deleted) return false;
+    if (cuenta.tipo !== "proveedor") return false;
+
+    const matchesSearch = (cuenta.entidad || "")
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    const matchesTipo = filterTipo === "all" || cuenta.tipo === filterTipo;
+
+    return matchesSearch && matchesTipo;
   });
 
   const totalSaldoNegativo = filteredCuentas.reduce(

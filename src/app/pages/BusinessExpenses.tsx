@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { db } from "../../db";
 
 import { Button } from "../components/ui/button";
@@ -51,8 +51,15 @@ import {
   Expense,
   CuentaCorriente,
   Cheque,
+  GastoProveedor,
   Vehicle,
 } from "../types";
+
+type ProviderExpenseRow = GastoProveedor & {
+  cuentaId: string;
+  entidad: string;
+  cuentaSaldo: number;
+};
 
 export function BusinessExpenses() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -90,10 +97,10 @@ export function BusinessExpenses() {
         ]);
 
       setOrdenesTrabajo(ordenes.filter((o) => !o.deleted));
-      setExpenses(gastos);
-      setCuentasCorrientes(cuentas);
-      setCheques(chequesDB);
-      setVehicles(vehiculos);
+      setExpenses(gastos.filter((g) => !g.deleted));
+      setCuentasCorrientes(cuentas.filter((c) => !c.deleted));
+      setCheques(chequesDB.filter((c) => !c.deleted));
+      setVehicles(vehiculos.filter((v) => !v.deleted));
     } catch (error) {
       console.error(error);
       toast.error("Error cargando datos");
@@ -136,20 +143,35 @@ export function BusinessExpenses() {
     });
 
     // Extraer gastos de proveedores de cuentas corrientes
-    const monthlyProviderExpenses = cuentasCorrientes
-      .filter((cuenta) => cuenta.gastos && cuenta.gastos.length > 0)
-      .flatMap((cuenta) =>
-        cuenta.gastos!.filter((gasto) => {
+    const monthlyProviderExpenses: ProviderExpenseRow[] = cuentasCorrientes
+      .filter(
+        (cuenta) =>
+          !cuenta.deleted && cuenta.gastos && cuenta.gastos.length > 0,
+      )
+      .flatMap((cuenta) => {
+        return cuenta.gastos!.flatMap((gasto) => {
           const date = new Date(gasto.fecha);
-          return (
+          const isSameMonth =
             date.getFullYear() === Number(year) &&
-            date.getMonth() === Number(month) - 1
-          );
-        }),
-      );
+            date.getMonth() === Number(month) - 1;
+
+          if (!isSameMonth) return [];
+
+          return [
+            {
+              ...gasto,
+              cuentaId: cuenta.id,
+              entidad: cuenta.entidad,
+              cuentaSaldo: cuenta.saldo,
+            },
+          ];
+        });
+      });
 
     const monthlyDebts = cuentasCorrientes.filter((cuenta) => cuenta.saldo < 0);
-    const monthlyDeudores = ordenesTrabajo.filter(
+
+    // Clientes deudores del MES seleccionado (OT del mes con saldo pendiente)
+    const monthlyDeudores = monthlyOrdenes.filter(
       (orden) => orden.saldoPendiente > 0,
     );
     const monthlyChequesImputados = cheques.filter((cheque) => {
@@ -161,11 +183,21 @@ export function BusinessExpenses() {
       );
     });
 
+    const monthlyChequesImputadosClientes = monthlyChequesImputados.filter(
+      (cheque) => Boolean(cheque.clienteId),
+    );
+
+    const monthlyChequesImputadosProveedores = monthlyChequesImputados.filter(
+      (cheque) => !cheque.clienteId,
+    );
+
     const totalIngresos = monthlyOrdenes.reduce(
       (sum, orden) => sum + orden.monto,
       0,
     );
-    const totalIngresosCheques = monthlyChequesImputados.reduce(
+
+    // Solo cheques imputados a clientes cuentan como ingreso (cobranza de OT)
+    const totalIngresosCheques = monthlyChequesImputadosClientes.reduce(
       (sum, cheque) => sum + cheque.monto,
       0,
     );
@@ -173,7 +205,20 @@ export function BusinessExpenses() {
     // Sumar gastos normales y de proveedores
     const totalEgresos =
       monthlyExpenses.reduce((sum, expense) => sum + expense.total, 0) +
-      monthlyProviderExpenses.reduce((sum, gasto) => sum + gasto.total, 0);
+      monthlyProviderExpenses.reduce((sum, gasto) => sum + gasto.total, 0) +
+      // Cheques imputados a proveedores/cuentas corrientes (pago) cuentan como egreso
+      monthlyChequesImputadosProveedores.reduce((sum, cheque) => sum + cheque.monto, 0);
+
+    const totalIvaVentas = monthlyOrdenes.reduce((sum, orden) => {
+      const iva = orden.monto - orden.monto / 1.21;
+      return sum + iva;
+    }, 0);
+
+    // IVA Compras: SOLO cuentas corrientes (proveedores), como pediste
+    const totalIvaCompras = monthlyProviderExpenses.reduce(
+      (sum, gasto) => sum + (gasto.iva || 0),
+      0,
+    );
 
     const totalDeudas = Math.abs(
       monthlyDebts.reduce((sum, cuenta) => sum + cuenta.saldo, 0),
@@ -193,10 +238,13 @@ export function BusinessExpenses() {
       debts: monthlyDebts,
       deudores: monthlyDeudores,
       clientesUnicosConDeuda,
-      chequesImputados: monthlyChequesImputados,
+      chequesImputadosClientes: monthlyChequesImputadosClientes,
+      chequesImputadosProveedores: monthlyChequesImputadosProveedores,
       totalIngresos,
       totalIngresosCheques,
       totalEgresos,
+      totalIvaVentas,
+      totalIvaCompras,
       totalDeudas,
       totalDeudores,
       balance: totalIngresos + totalIngresosCheques - totalEgresos,
@@ -307,8 +355,8 @@ export function BusinessExpenses() {
                 </div>
                 <p className="text-xs opacity-90">
                   {monthlyData.ordenes.length} órdenes facturadas
-                  {monthlyData.chequesImputados.length > 0 &&
-                    ` + ${monthlyData.chequesImputados.length} cheque${monthlyData.chequesImputados.length !== 1 ? "s" : ""} imputado${monthlyData.chequesImputados.length !== 1 ? "s" : ""}`}
+                  {monthlyData.chequesImputadosClientes.length > 0 &&
+                    ` + ${monthlyData.chequesImputadosClientes.length} cheque${monthlyData.chequesImputadosClientes.length !== 1 ? "s" : ""} imputado${monthlyData.chequesImputadosClientes.length !== 1 ? "s" : ""} (clientes)`}
                 </p>
               </CardContent>
             </Card>
@@ -371,6 +419,66 @@ export function BusinessExpenses() {
                 </div>
                 <p className="text-xs opacity-90">
                   {monthlyData.balance >= 0 ? "Superávit" : "Déficit"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Reporte IVA */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="bg-white/80 backdrop-blur-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-green-600" />
+                  IVA Ventas (Órdenes de Trabajo)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-700">
+                  ${monthlyData.totalIvaVentas.toFixed(2)}
+                </div>
+                <p className="text-xs text-gray-500">
+                  Total de IVA incluido en lo facturado de OT (21%)
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/80 backdrop-blur-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-red-600" />
+                  IVA Compras (Cuentas Corrientes)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-700">
+                  ${monthlyData.totalIvaCompras.toFixed(2)}
+                </div>
+                <p className="text-xs text-gray-500">
+                  IVA de compras cargadas a proveedores (cuentas corrientes)
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/80 backdrop-blur-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-blue-600" />
+                  Diferencia de IVA (Ventas - Compras)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={`text-2xl font-bold ${
+                    monthlyData.totalIvaVentas - monthlyData.totalIvaCompras >= 0
+                      ? "text-blue-700"
+                      : "text-purple-700"
+                  }`}
+                >
+                  ${(monthlyData.totalIvaVentas - monthlyData.totalIvaCompras).toFixed(2)}
+                </div>
+                <p className="text-xs text-gray-500">
+                  Si da positivo: IVA a pagar. Si da negativo: IVA a favor.
                 </p>
               </CardContent>
             </Card>
@@ -496,7 +604,7 @@ export function BusinessExpenses() {
                       ))}
                       {/* Gastos de proveedores */}
                       {monthlyData.providerExpenses.map((gasto) => (
-                        <TableRow key={gasto.id}>
+                        <TableRow key={`${gasto.cuentaId}-${gasto.id}`}>
                           <TableCell className="text-sm">
                             {new Date(gasto.fecha).toLocaleDateString("es-AR")}
                           </TableCell>
@@ -509,9 +617,25 @@ export function BusinessExpenses() {
                             className="max-w-xs truncate"
                             title={gasto.detalleProducto}
                           >
-                            {gasto.detalleProducto}
+                            <div className="flex flex-col">
+                              <span>{gasto.detalleProducto}</span>
+                              <span className="text-xs text-gray-500">
+                                {gasto.entidad}
+                              </span>
+                            </div>
                           </TableCell>
-                          <TableCell className="text-right font-semibold text-red-600">
+                          <TableCell
+                            className={`text-right font-semibold ${
+                              gasto.cuentaSaldo >= 0
+                                ? "text-green-600"
+                                : "text-red-600"
+                            }`}
+                            title={
+                              gasto.cuentaSaldo >= 0
+                                ? "Saldado"
+                                : "Pendiente (saldo proveedor negativo)"
+                            }
+                          >
                             ${gasto.total.toFixed(2)}
                           </TableCell>
                         </TableRow>
@@ -535,13 +659,13 @@ export function BusinessExpenses() {
             </Card>
           </div>
 
-          {/* Cheques Imputados */}
-          {monthlyData.chequesImputados.length > 0 && (
+          {/* Cheques Imputados (Clientes) */}
+          {monthlyData.chequesImputadosClientes.length > 0 && (
             <Card className="bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Receipt className="h-5 w-5 text-purple-600" />
-                  Cheques Imputados
+                  Cheques Imputados (Clientes)
                 </CardTitle>
                 <CardDescription>
                   Cheques utilizados para saldar deudas de clientes en{" "}
@@ -564,7 +688,7 @@ export function BusinessExpenses() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {monthlyData.chequesImputados.map((cheque) => {
+                      {monthlyData.chequesImputadosClientes.map((cheque) => {
                         // Buscar el cliente correspondiente por clienteId
                         const clienteCorrespondiente = vehicles.find(
                           (v) => v.id === cheque.clienteId,
@@ -593,6 +717,61 @@ export function BusinessExpenses() {
                           </TableRow>
                         );
                       })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Cheques Imputados (Proveedores / Cuentas Corrientes) */}
+          {monthlyData.chequesImputadosProveedores.length > 0 && (
+            <Card className="bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5 text-blue-600" />
+                  Cheques Imputados (Proveedores)
+                </CardTitle>
+                <CardDescription>
+                  Cheques utilizados para saldar cuentas corrientes en{" "}
+                  {new Date(selectedMonth + "-01").toLocaleDateString("es-AR", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha Imputación</TableHead>
+                        <TableHead>Número</TableHead>
+                        <TableHead>Destino</TableHead>
+                        <TableHead>Emisor</TableHead>
+                        <TableHead className="text-right">Monto</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {monthlyData.chequesImputadosProveedores.map((cheque) => (
+                        <TableRow key={cheque.id}>
+                          <TableCell className="text-sm">
+                            {cheque.fechaImputacion
+                              ? new Date(cheque.fechaImputacion).toLocaleDateString(
+                                  "es-AR",
+                                )
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {cheque.numero || "—"}
+                          </TableCell>
+                          <TableCell>{cheque.destino || "Cuenta Corriente"}</TableCell>
+                          <TableCell>{cheque.emisor}</TableCell>
+                          <TableCell className="text-right font-semibold text-blue-600">
+                            ${cheque.monto.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
@@ -648,7 +827,7 @@ export function BusinessExpenses() {
                                 variant="outline"
                                 onClick={() => {
                                   const mensaje = `Hola ${orden.cliente}, le recordamos que tiene un saldo pendiente de $${orden.saldoPendiente.toFixed(2)} por la orden ${orden.numeroOT} del vehículo ${orden.patente}.`;
-                                  const url = `https://wa.me/549${orden.telefono.replace(/\D/g, "")}?text=${encodeURIComponent(mensaje)}`;
+                                  const url = `https://wa.me/549${orden.telefono!.replace(/\D/g, "")}?text=${encodeURIComponent(mensaje)}`;
                                   window.open(url, "_blank");
                                 }}
                                 className="gap-1"
