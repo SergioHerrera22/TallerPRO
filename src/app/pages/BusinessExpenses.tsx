@@ -66,6 +66,11 @@ export function BusinessExpenses() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(true);
+  const [isSyncingNow, setIsSyncingNow] = useState(false);
+  const [outboxPendingCount, setOutboxPendingCount] = useState(0);
+  const [lastSyncOkAt, setLastSyncOkAt] = useState<string>("");
+  const [lastSyncError, setLastSyncError] = useState<string>("");
+  const [lastSyncErrorAt, setLastSyncErrorAt] = useState<string>("");
 
   const [ordenesTrabajo, setOrdenesTrabajo] = useState<OrdenTrabajo[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -84,6 +89,12 @@ export function BusinessExpenses() {
       loadData();
     }
   }, [isAuthenticated, selectedMonth]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      void loadSyncStatus();
+    }
+  }, [isAuthenticated]);
 
   const loadData = async () => {
     try {
@@ -107,8 +118,40 @@ export function BusinessExpenses() {
     }
   };
 
+  const loadSyncStatus = async () => {
+    const [pendingCount, okAt, err, errAt] = await Promise.all([
+      db.outbox.count(),
+      db.sync_meta.get("lastSyncOkAt"),
+      db.sync_meta.get("lastSyncError"),
+      db.sync_meta.get("lastSyncErrorAt"),
+    ]);
+
+    setOutboxPendingCount(pendingCount);
+    setLastSyncOkAt(okAt?.value ?? "");
+    setLastSyncError(err?.value ?? "");
+    setLastSyncErrorAt(errAt?.value ?? "");
+  };
+
+  const handleRetrySync = async () => {
+    if (isSyncingNow) return;
+    setIsSyncingNow(true);
+    try {
+      const res = await sync();
+      if (!res?.success) toast.error("Error sincronizando datos");
+      else toast.success("Sincronización completada");
+      window.dispatchEvent(new Event("app:refreshData"));
+    } catch (error) {
+      console.error(error);
+      toast.error("Error sincronizando datos");
+    } finally {
+      setIsSyncingNow(false);
+      await loadSyncStatus();
+    }
+  };
+
   const reloadData = async () => {
     await loadData();
+    await loadSyncStatus();
     toast.success("Datos actualizados");
   };
 
@@ -333,6 +376,54 @@ export function BusinessExpenses() {
                   <RefreshCw className="h-4 w-4" />
                   Actualizar Datos
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Estado de sincronización */}
+          <Card className="bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className={`h-5 w-5 ${isSyncingNow ? "animate-spin" : ""}`} />
+                Estado de sincronización
+              </CardTitle>
+              <CardDescription>
+                Cola pendiente: {outboxPendingCount} operación
+                {outboxPendingCount !== 1 ? "es" : ""}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="space-y-1 text-sm">
+                  <div className="text-gray-700">
+                    <span className="font-medium">Última sincronización OK:</span>{" "}
+                    {lastSyncOkAt
+                      ? new Date(lastSyncOkAt).toLocaleString("es-AR")
+                      : "—"}
+                  </div>
+                  <div className="text-gray-700">
+                    <span className="font-medium">Último error:</span>{" "}
+                    {lastSyncError ? lastSyncError : "—"}
+                  </div>
+                  {lastSyncErrorAt && (
+                    <div className="text-gray-500 text-xs">
+                      {new Date(lastSyncErrorAt).toLocaleString("es-AR")}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleRetrySync}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    disabled={isSyncingNow}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isSyncingNow ? "animate-spin" : ""}`} />
+                    Reintentar sincronización
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
