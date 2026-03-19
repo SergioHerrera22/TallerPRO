@@ -258,12 +258,6 @@ export function BusinessExpenses() {
       return sum + iva;
     }, 0);
 
-    // IVA Compras: SOLO cuentas corrientes (proveedores), como pediste
-    const totalIvaCompras = monthlyProviderExpenses.reduce(
-      (sum, gasto) => sum + (gasto.iva || 0),
-      0,
-    );
-
     const totalDeudas = Math.abs(
       monthlyDebts.reduce((sum, cuenta) => sum + cuenta.saldo, 0),
     );
@@ -288,7 +282,6 @@ export function BusinessExpenses() {
       totalIngresosCheques,
       totalEgresos,
       totalIvaVentas,
-      totalIvaCompras,
       totalDeudas,
       totalDeudores,
       balance: totalIngresos + totalIngresosCheques - totalEgresos,
@@ -517,7 +510,7 @@ export function BusinessExpenses() {
           </div>
 
           {/* Reporte IVA */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <Card className="bg-white/80 backdrop-blur-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -531,46 +524,6 @@ export function BusinessExpenses() {
                 </div>
                 <p className="text-xs text-gray-500">
                   Total de IVA incluido en lo facturado de OT (21%)
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 backdrop-blur-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Receipt className="h-4 w-4 text-red-600" />
-                  IVA Compras (Cuentas Corrientes)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-700">
-                  ${monthlyData.totalIvaCompras.toFixed(2)}
-                </div>
-                <p className="text-xs text-gray-500">
-                  IVA de compras cargadas a proveedores (cuentas corrientes)
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 backdrop-blur-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Receipt className="h-4 w-4 text-blue-600" />
-                  Diferencia de IVA (Ventas - Compras)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div
-                  className={`text-2xl font-bold ${
-                    monthlyData.totalIvaVentas - monthlyData.totalIvaCompras >= 0
-                      ? "text-blue-700"
-                      : "text-purple-700"
-                  }`}
-                >
-                  ${(monthlyData.totalIvaVentas - monthlyData.totalIvaCompras).toFixed(2)}
-                </div>
-                <p className="text-xs text-gray-500">
-                  Si da positivo: IVA a pagar. Si da negativo: IVA a favor.
                 </p>
               </CardContent>
             </Card>

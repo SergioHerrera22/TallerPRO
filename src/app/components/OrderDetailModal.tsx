@@ -1,3 +1,4 @@
+import React from "react";
 import { OrdenTrabajo } from "../types";
 import {
   Dialog,
@@ -113,7 +114,7 @@ export function OrderDetailModal({
           </div>
 
           <div class="info-section">
-            <h2>Trabalho Realizado</h2>
+            <h2>Trabajo Realizado</h2>
             <div class="info-grid full-width">
               <div class="info-item">
                 <div class="info-label">Descripción</div>

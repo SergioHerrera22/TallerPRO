@@ -91,7 +91,6 @@ export function AccountsLedger() {
   const [gastoFormData, setGastoFormData] = useState({
     fecha: new Date().toISOString().split("T")[0],
     detalleProducto: "",
-    iva: 0,
     total: 0,
   });
 
@@ -193,15 +192,11 @@ export function AccountsLedger() {
       return;
     }
 
-    const ivaCalculado = parseFloat(
-      (gastoFormData.total - gastoFormData.total / 1.21).toFixed(2),
-    );
-
     const nuevoGasto: GastoProveedor = {
       id: crypto.randomUUID(),
       fecha: gastoFormData.fecha,
       detalleProducto: gastoFormData.detalleProducto,
-      iva: ivaCalculado,
+      iva: 0,
       total: gastoFormData.total,
       createdAt: new Date().toISOString(),
     };
@@ -568,44 +563,26 @@ export function AccountsLedger() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="iva">IVA (21%)</Label>
-                <Input
-                  id="iva"
-                  type="number"
-                  step="0.01"
-                  placeholder="$0.00"
-                  value={gastoFormData.iva}
-                  readOnly
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="total">Total ($) *</Label>
-                <Input
-                  id="total"
-                  type="number"
-                  step="0.01"
-                  placeholder="$0.00"
-                  value={gastoFormData.total}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(",", ".");
-                    const parsed = parseFloat(raw) || 0;
-                    const ivaCalculated = parseFloat(
-                      (parsed - parsed / 1.21).toFixed(2),
-                    );
-                    setGastoFormData({
-                      ...gastoFormData,
-                      total: parsed,
-                      iva: ivaCalculated,
-                    });
-                  }}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Monto total del gasto (se sumará a la deuda con el proveedor)
-                </p>
-              </div>
+            <div>
+              <Label htmlFor="total">Total ($) *</Label>
+              <Input
+                id="total"
+                type="number"
+                step="0.01"
+                placeholder="$0.00"
+                value={gastoFormData.total}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(",", ".");
+                  const parsed = parseFloat(raw) || 0;
+                  setGastoFormData({
+                    ...gastoFormData,
+                    total: parsed,
+                  });
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Monto total del gasto (se restará del saldo de la cuenta)
+              </p>
             </div>
           </div>
 
@@ -632,14 +609,13 @@ export function AccountsLedger() {
             {selectedCuenta?.gastos && selectedCuenta.gastos.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Detalle</TableHead>
-                      <TableHead className="text-right">IVA</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Detalle</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {selectedCuenta.gastos
                       .sort(
@@ -657,9 +633,6 @@ export function AccountsLedger() {
                             title={gasto.detalleProducto}
                           >
                             {gasto.detalleProducto}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            ${gasto.iva.toFixed(2)}
                           </TableCell>
                           <TableCell className="text-right font-semibold">
                             ${gasto.total.toFixed(2)}
