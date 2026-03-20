@@ -75,39 +75,26 @@ function buildOrderWithoutPricesHtml(order: OrdenTrabajo) {
           table { width: 100%; border-collapse: collapse; margin-top: 8px; }
           th, td { padding: 6px 4px; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-align: left; }
           th { background: #f3f4f6; font-weight: 600; }
+          .right { text-align: right; }
           .footer { border-top: 1px solid #e5e7eb; padding-top: 8px; margin-top: 14px; font-size: 11px; color: #6b7280; }
         </style>
       </head>
       <body>
         <div class="header">
           <h1>ORDEN DE TRABAJO</h1>
-          <p>Número: ${order.numeroOT} (Sin precios)</p>
+          <p>Número OT: ${order.numeroOT}</p>
         </div>
 
         <div class="section">
-          <h2>Información General</h2>
+          <h2>Cliente y Vehículo</h2>
           <div class="grid">
-            <div>
-              <div class="label">Fecha</div>
-              <div class="value">${new Date(order.fecha).toLocaleDateString("es-AR")}</div>
-            </div>
-            <div>
-              <div class="label">Estado</div>
-              <div class="value">${order.estado.charAt(0).toUpperCase() + order.estado.slice(1)}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h2>Datos del Vehículo</h2>
-          <div class="grid">
-            <div>
-              <div class="label">Patente</div>
-              <div class="value">${order.patente}</div>
-            </div>
             <div>
               <div class="label">Cliente</div>
               <div class="value">${order.cliente}</div>
+            </div>
+            <div>
+              <div class="label">Patente</div>
+              <div class="value">${order.patente}</div>
             </div>
           </div>
         </div>
@@ -127,7 +114,7 @@ function buildOrderWithoutPricesHtml(order: OrdenTrabajo) {
         ${
           order.repuestos && order.repuestos.length > 0
             ? `<div class="section">
-          <h2>Repuestos Utilizados</h2>
+          <h2>Repuestos</h2>
           <table>
             <tr><th>Detalle</th></tr>
             ${order.repuestos.map((r) => `<tr><td>${r.detalle}</td></tr>`).join("")}
@@ -136,18 +123,16 @@ function buildOrderWithoutPricesHtml(order: OrdenTrabajo) {
             : ""
         }
 
-        ${
-          order.observaciones
-            ? `<div class="section">
-          <h2>Observaciones</h2>
-          <div class="value">${order.observaciones}</div>
-        </div>`
-            : ""
-        }
-
         <div class="section">
-          <h2>Servicios</h2>
-          <div class="value">${order.lavado ? "Incluye lavado de vehículo" : "Sin lavado"}</div>
+          <h2>Resumen de Gastos</h2>
+          <table>
+            <tr>
+              <td>Mano de Obra</td>
+            </tr>
+            <tr>
+              <td><strong>Total OT</strong></td>
+            </tr>
+          </table>
         </div>
 
         <div class="footer">
@@ -186,7 +171,7 @@ function buildOrderWithPricesHtml(order: OrdenTrabajo) {
       <body>
         <div class="header">
           <h1>COMPROBANTE DE TRABAJO</h1>
-          <p>Número OT: ${order.numeroOT} (Con precios)</p>
+          <p>Número OT: ${order.numeroOT}</p>
         </div>
 
         <div class="section">
