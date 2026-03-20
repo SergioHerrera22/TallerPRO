@@ -225,10 +225,12 @@ export function AccountsLedger() {
     setShowGastosListDialog(true);
   };
 
-  const filteredCuentas = cuentas.filter((cuenta) => {
-    if (cuenta.deleted) return false;
-    if (cuenta.tipo !== "proveedor") return false;
+  const cuentasActivas = cuentas.filter((cuenta) => !cuenta.deleted);
+  const cuentasProveedores = cuentasActivas.filter(
+    (cuenta) => cuenta.tipo === "proveedor",
+  );
 
+  const filteredCuentas = cuentasActivas.filter((cuenta) => {
     const matchesSearch = (cuenta.entidad || "")
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
@@ -238,7 +240,7 @@ export function AccountsLedger() {
     return matchesSearch && matchesTipo;
   });
 
-  const totalSaldoNegativo = filteredCuentas.reduce(
+  const totalSaldoNegativo = cuentasProveedores.reduce(
     (sum, c) => sum + (c.saldo < 0 ? Math.abs(c.saldo) : 0),
     0,
   );
@@ -264,10 +266,7 @@ export function AccountsLedger() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              $
-              {filteredCuentas
-                .reduce((sum, c) => sum + Math.abs(c.saldo), 0)
-                .toFixed(2)}
+              ${totalSaldoNegativo.toFixed(2)}
             </div>
             <p className="text-xs text-gray-500">Total de gastos registrados</p>
           </CardContent>
@@ -280,7 +279,7 @@ export function AccountsLedger() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{filteredCuentas.length}</div>
-            <p className="text-xs text-gray-500">proveedores registrados</p>
+            <p className="text-xs text-gray-500">cuentas registradas</p>
           </CardContent>
         </Card>
       </div>
@@ -609,13 +608,13 @@ export function AccountsLedger() {
             {selectedCuenta?.gastos && selectedCuenta.gastos.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Detalle</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Detalle</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {selectedCuenta.gastos
                       .sort(

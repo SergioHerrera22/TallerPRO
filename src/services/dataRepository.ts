@@ -12,13 +12,24 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function broadcastDataRefresh() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("app:refreshData"));
+  }
+}
+
 export const dataRepository = {
   async saveVehicle(entity: Vehicle) {
     const updatedAt = nowIso();
-    const record: Vehicle = { ...entity, updatedAt, deleted: entity.deleted ?? false };
+    const record: Vehicle = {
+      ...entity,
+      updatedAt,
+      deleted: entity.deleted ?? false,
+    };
     await db.vehicles.put(record);
     await enqueueOutbox("vehicles", "upsert", record.id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
     return record;
   },
 
@@ -34,14 +45,20 @@ export const dataRepository = {
     await db.vehicles.put(record);
     await enqueueOutbox("vehicles", "delete", id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
   },
 
   async saveOrdenTrabajo(entity: OrdenTrabajo) {
     const updatedAt = nowIso();
-    const record: OrdenTrabajo = { ...entity, updatedAt, deleted: entity.deleted ?? false };
+    const record: OrdenTrabajo = {
+      ...entity,
+      updatedAt,
+      deleted: entity.deleted ?? false,
+    };
     await db.ordenesTrabajo.put(record);
     await enqueueOutbox("ordenesTrabajo", "upsert", record.id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
     return record;
   },
 
@@ -57,14 +74,20 @@ export const dataRepository = {
     await db.ordenesTrabajo.put(record);
     await enqueueOutbox("ordenesTrabajo", "delete", id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
   },
 
   async saveExpense(entity: Expense) {
     const updatedAt = nowIso();
-    const record: Expense = { ...entity, updatedAt, deleted: entity.deleted ?? false };
+    const record: Expense = {
+      ...entity,
+      updatedAt,
+      deleted: entity.deleted ?? false,
+    };
     await db.expenses.put(record);
     await enqueueOutbox("expenses", "upsert", record.id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
     return record;
   },
 
@@ -80,14 +103,20 @@ export const dataRepository = {
     await db.expenses.put(record);
     await enqueueOutbox("expenses", "delete", id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
   },
 
   async saveCheque(entity: Cheque) {
     const updatedAt = nowIso();
-    const record: Cheque = { ...entity, updatedAt, deleted: entity.deleted ?? false };
+    const record: Cheque = {
+      ...entity,
+      updatedAt,
+      deleted: entity.deleted ?? false,
+    };
     await db.cheques.put(record);
     await enqueueOutbox("cheques", "upsert", record.id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
     return record;
   },
 
@@ -103,6 +132,7 @@ export const dataRepository = {
     await db.cheques.put(record);
     await enqueueOutbox("cheques", "delete", id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
   },
 
   async saveCuentaCorriente(entity: CuentaCorriente) {
@@ -115,6 +145,7 @@ export const dataRepository = {
     await db.cuentasCorrientes.put(record);
     await enqueueOutbox("cuentasCorrientes", "upsert", record.id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
     return record;
   },
 
@@ -130,6 +161,6 @@ export const dataRepository = {
     await db.cuentasCorrientes.put(record);
     await enqueueOutbox("cuentasCorrientes", "delete", id, record);
     if (navigator.onLine) void sync();
+    broadcastDataRefresh();
   },
 };
-
