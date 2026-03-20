@@ -164,8 +164,24 @@ function buildOrderWithPricesHtml(order: OrdenTrabajo) {
     <!DOCTYPE html>
     <html>
       <head>
-        <title>OT ${order.numeroOT} - Con precios</title>
-        ${buildCommonStyles()}
+        <meta charset="UTF-8">
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; color: #333; background: white; }
+          .header { border-bottom: 2px solid #1f2937; margin-bottom: 16px; padding-bottom: 8px; }
+          .header h1 { font-size: 22px; margin-bottom: 4px; }
+          .header p { color: #666; font-size: 13px; }
+          .section { margin-bottom: 14px; }
+          .section h2 { font-size: 14px; font-weight: bold; color: #1f2937; margin-bottom: 6px; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+          .label { font-size: 11px; font-weight: bold; color: #666; margin-bottom: 2px; }
+          .value { font-size: 13px; color: #111827; }
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+          th, td { padding: 6px 4px; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-align: left; }
+          th { background: #f3f4f6; font-weight: 600; }
+          .right { text-align: right; }
+          .footer { border-top: 1px solid #e5e7eb; padding-top: 8px; margin-top: 14px; font-size: 11px; color: #6b7280; }
+        </style>
       </head>
       <body>
         <div class="header">
@@ -192,16 +208,11 @@ function buildOrderWithPricesHtml(order: OrdenTrabajo) {
             ? `<div class="section">
           <h2>Repuestos</h2>
           <table>
-            <tr>
-              <th>Detalle</th>
-              <th class="right">Precio</th>
-            </tr>
+            <tr><th>Detalle</th><th class="right">Precio</th></tr>
             ${order.repuestos
               .map(
-                (r) => `<tr>
-              <td>${r.detalle}</td>
-              <td class="right">$${(r.precio || 0).toFixed(2)}</td>
-            </tr>`,
+                (r) =>
+                  `<tr><td>${r.detalle}</td><td class="right">$${(r.precio || 0).toFixed(2)}</td></tr>`,
               )
               .join("")}
           </table>
@@ -232,37 +243,13 @@ function buildOrderWithPricesHtml(order: OrdenTrabajo) {
   `;
 }
 
-async function htmlToPdfBytes(html: string): Promise<ArrayBuffer> {
-  const html2pdf = (await import("html2pdf.js")).default;
-
-  const container = document.createElement("div");
-  container.style.position = "fixed";
-  container.style.left = "-10000px";
-  container.style.top = "0";
-  container.style.width = "794px";
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  try {
-    const pdfBuffer = await html2pdf()
-      .set({
-        margin: [8, 8, 8, 8],
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      })
-      .from(container)
-      .toPdf()
-      .outputPdf("arraybuffer");
-
-    return pdfBuffer;
-  } finally {
-    document.body.removeChild(container);
-  }
-}
-
 async function getCheckPdfBytes(): Promise<ArrayBuffer> {
-  const fallbackUrls = [checkPdfUrl, "/src/services/check.pdf", "/check.pdf"];
+  const fallbackUrls = [
+    checkPdfUrl,
+    "/src/services/check.pdf",
+    "/check.pdf",
+    "/assets/check-CQG3kePf.pdf",
+  ];
 
   for (const url of fallbackUrls) {
     try {
@@ -275,29 +262,41 @@ async function getCheckPdfBytes(): Promise<ArrayBuffer> {
     }
   }
 
-  throw new Error("No se pudo cargar el PDF de check");
+  console.warn("No se pudo cargar el PDF de check, continuando sin él");
+  return new ArrayBuffer(0);
 }
 
 async function mergePdfBuffers(buffers: ArrayBuffer[]): Promise<Uint8Array> {
+  const validBuffers = buffers.filter((b) => b.byteLength > 0);
+
+  if (validBuffers.length === 0) {
+    throw new Error("No hay PDFs válidos para fusionar");
+  }
+
   const mergedPdf = await PDFDocument.create();
 
-  for (const buffer of buffers) {
-    const sourcePdf = await PDFDocument.load(buffer);
-    const copiedPages = await mergedPdf.copyPages(
-      sourcePdf,
-      sourcePdf.getPageIndices(),
-    );
+  for (const buffer of validBuffers) {
+    try {
+      const sourcePdf = await PDFDocument.load(buffer);
+      const copiedPages = await mergedPdf.copyPages(
+        sourcePdf,
+        sourcePdf.getPageIndices(),
+      );
 
-    copiedPages.forEach((page) => mergedPdf.addPage(page));
+      copiedPages.forEach((page) => mergedPdf.addPage(page));
+    } catch (err) {
+      console.warn("No se pudo cargar un PDF, continuando...", err);
+      continue;
+    }
   }
 
   return mergedPdf.save();
 }
 
 export async function printOrderPackage(order: OrdenTrabajo) {
-  const [withoutPricesPdf, withPricesPdf, checkPdf] = await Promise.all([
-    htmlToPdfBytes(buildOrderWithoutPricesHtml(order)),
-    htmlToPdfBytes(buildOrderWithPricesHtml(order)),
+  const [withPricesPdf, withoutPricesPdf, checkPdf] = await Promise.all([
+    htmlCanvasToPdf(buildOrderWithPricesHtml(order)),
+    htmlCanvasToPdf(buildOrderWithoutPricesHtml(order)),
     getCheckPdfBytes(),
   ]);
 
@@ -319,5 +318,5 @@ export async function printOrderPackage(order: OrdenTrabajo) {
   setTimeout(() => {
     printWindow.print();
     URL.revokeObjectURL(blobUrl);
-  }, 700);
+  }, 1000);
 }
