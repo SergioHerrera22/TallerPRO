@@ -356,6 +356,29 @@ async function mergePdfBuffers(buffers: ArrayBuffer[]): Promise<Uint8Array> {
   return mergedPdf.save();
 }
 
+function revokeBlobUrlWhenWindowCloses(
+  targetWindow: Window,
+  blobUrl: string,
+): void {
+  const maxLifetimeMs = 30 * 60 * 1000;
+
+  const cleanup = () => {
+    window.clearInterval(closeCheckInterval);
+    window.clearTimeout(fallbackTimeout);
+    URL.revokeObjectURL(blobUrl);
+  };
+
+  const closeCheckInterval = window.setInterval(() => {
+    if (targetWindow.closed) {
+      cleanup();
+    }
+  }, 1000);
+
+  const fallbackTimeout = window.setTimeout(() => {
+    cleanup();
+  }, maxLifetimeMs);
+}
+
 export async function printOrderPackage(order: OrdenTrabajo) {
   const [withPricesPdf, withoutPricesPdf, checkPdf] = await Promise.all([
     htmlCanvasToPdf(buildOrderWithPricesHtml(order)),
@@ -380,8 +403,10 @@ export async function printOrderPackage(order: OrdenTrabajo) {
     throw new Error("No se pudo abrir la ventana de impresión");
   }
 
+  revokeBlobUrlWhenWindowCloses(printWindow, blobUrl);
+
   setTimeout(() => {
+    printWindow.focus();
     printWindow.print();
-    URL.revokeObjectURL(blobUrl);
   }, 1000);
 }
