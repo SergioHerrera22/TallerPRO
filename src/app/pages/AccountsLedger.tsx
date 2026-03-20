@@ -394,26 +394,22 @@ export function AccountsLedger() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
-                          {cuenta.tipo === "proveedor" && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleViewGastos(cuenta)}
-                                title="Ver gastos"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleAddGasto(cuenta)}
-                                title="Agregar gasto"
-                              >
-                                <Receipt className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleViewGastos(cuenta)}
+                            title="Ver gastos"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleAddGasto(cuenta)}
+                            title="Agregar gasto"
+                          >
+                            <Receipt className="h-4 w-4" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
