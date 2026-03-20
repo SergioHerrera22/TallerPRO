@@ -7,25 +7,29 @@ import { X } from "lucide-react";
 
 interface VehicleFormProps {
   patente?: string;
+  initialData?: Vehicle;
   onSubmit: (vehicle: Omit<Vehicle, "id" | "createdAt">) => void;
   onCancel: () => void;
 }
 
 export function VehicleForm({
   patente = "",
+  initialData,
   onSubmit,
   onCancel,
 }: VehicleFormProps) {
   const [formData, setFormData] = useState({
-    patente: patente.toUpperCase(),
-    marca: "",
-    modelo: "",
-    anio: new Date().getFullYear(),
-    color: "",
-    cliente: "",
-    telefono: "",
-    kilometros: 0,
+    patente: (initialData?.patente ?? patente).toUpperCase(),
+    marca: initialData?.marca ?? "",
+    modelo: initialData?.modelo ?? "",
+    anio: initialData?.anio ?? new Date().getFullYear(),
+    color: initialData?.color ?? "",
+    cliente: initialData?.cliente ?? "",
+    telefono: initialData?.telefono ?? "",
+    kilometros: initialData?.kilometros ?? 0,
   });
+
+  const isEditMode = Boolean(initialData);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +48,9 @@ export function VehicleForm({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-2xl font-semibold">Registrar Nuevo Vehículo</h2>
+          <h2 className="text-2xl font-semibold">
+            {isEditMode ? "Editar Vehículo" : "Registrar Nuevo Vehículo"}
+          </h2>
           <button
             onClick={onCancel}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -153,7 +159,9 @@ export function VehicleForm({
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
-            <Button type="submit">Registrar Vehículo</Button>
+            <Button type="submit">
+              {isEditMode ? "Guardar Cambios" : "Registrar Vehículo"}
+            </Button>
           </div>
         </form>
       </div>
