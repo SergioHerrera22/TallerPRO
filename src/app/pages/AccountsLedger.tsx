@@ -162,11 +162,6 @@ export function AccountsLedger() {
   };
 
   const handleAddGasto = (cuenta: CuentaCorriente) => {
-    if (cuenta.tipo !== "proveedor") {
-      toast.error("Solo se pueden agregar gastos a proveedores");
-      return;
-    }
-
     setSelectedCuenta(cuenta);
 
     setGastoFormData({

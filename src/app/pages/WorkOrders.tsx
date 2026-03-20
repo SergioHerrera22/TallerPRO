@@ -32,6 +32,7 @@ import { Plus, Search, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 import { dataRepository } from "../../services/dataRepository";
 import { generateNextOTNumber } from "../../services/orderNumberService";
+import { printOrderPackage } from "../../services/orderPrintService";
 
 export function WorkOrders() {
   const [orders, setOrders] = useState<OrdenTrabajo[]>([]);
@@ -63,6 +64,12 @@ export function WorkOrders() {
     window.addEventListener("app:refreshData", handler);
     return () => window.removeEventListener("app:refreshData", handler);
   }, []);
+
+  const handlePrintPackage = (order: OrdenTrabajo) => {
+    void printOrderPackage(order).catch(() => {
+      toast.error("No se pudo generar/imprimir el paquete de documentos");
+    });
+  };
 
   const printCombinedOrderDocuments = (order: OrdenTrabajo) => {
     const printWindow = window.open("", "_blank");
@@ -334,7 +341,7 @@ export function WorkOrders() {
     toast.success("Orden de trabajo creada exitosamente");
 
     // Siempre imprimir las tres hojas en un solo documento
-    printCombinedOrderDocuments(newOrder);
+    handlePrintPackage(newOrder);
   };
 
   const handleUpdateOrder = async (
@@ -357,7 +364,7 @@ export function WorkOrders() {
     toast.success("Orden actualizada exitosamente");
 
     // Siempre imprimir las tres hojas en un solo documento
-    printCombinedOrderDocuments(updatedOrder);
+    handlePrintPackage(updatedOrder);
   };
 
   const handleDeleteOrder = async (orderId: string) => {
