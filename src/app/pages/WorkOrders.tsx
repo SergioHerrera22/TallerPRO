@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { OrdenTrabajo, Vehicle } from "../types";
 import { db } from "../../db";
 import { createId } from "../../utils";
@@ -43,6 +43,10 @@ export function WorkOrders() {
   const [editingOrder, setEditingOrder] = useState<OrdenTrabajo | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterEstado, setFilterEstado] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("createdAt-desc");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     loadData();
@@ -386,17 +390,65 @@ export function WorkOrders() {
     setShowForm(true);
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.numeroOT.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.patente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.cliente.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterEstado, sortBy]);
 
-    const matchesEstado =
-      filterEstado === "all" || order.estado === filterEstado;
+  const filteredAndSortedOrders = useMemo(() => {
+    const filtered = orders.filter((order) => {
+      const matchesSearch =
+        order.numeroOT.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.patente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.cliente.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchesSearch && matchesEstado;
-  });
+      const matchesEstado =
+        filterEstado === "all" || order.estado === filterEstado;
+
+      return matchesSearch && matchesEstado;
+    });
+
+    const dateValue = (value?: string) => {
+      if (!value) return 0;
+      const timestamp = new Date(value).getTime();
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    };
+
+    return [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case "createdAt-asc":
+          return dateValue(a.createdAt) - dateValue(b.createdAt);
+        case "createdAt-desc":
+          return dateValue(b.createdAt) - dateValue(a.createdAt);
+        case "fecha-asc":
+          return dateValue(a.fecha) - dateValue(b.fecha);
+        case "fecha-desc":
+          return dateValue(b.fecha) - dateValue(a.fecha);
+        case "monto-asc":
+          return a.monto - b.monto;
+        case "monto-desc":
+          return b.monto - a.monto;
+        default:
+          return dateValue(b.createdAt) - dateValue(a.createdAt);
+      }
+    });
+  }, [orders, searchTerm, filterEstado, sortBy]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredAndSortedOrders.length / ITEMS_PER_PAGE),
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedOrders = filteredAndSortedOrders.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE,
+  );
 
   const getStatusColor = (estado: string) => {
     switch (estado) {
@@ -487,6 +539,19 @@ export function WorkOrders() {
                 <option value="en-progreso">En Progreso</option>
                 <option value="completada">Completada</option>
               </select>
+
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              >
+                <option value="createdAt-desc">Creación: más recientes</option>
+                <option value="createdAt-asc">Creación: más antiguas</option>
+                <option value="fecha-desc">Fecha OT: más recientes</option>
+                <option value="fecha-asc">Fecha OT: más antiguas</option>
+                <option value="monto-desc">Monto: mayor a menor</option>
+                <option value="monto-asc">Monto: menor a mayor</option>
+              </select>
             </div>
             <Button onClick={() => setShowForm(true)} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -501,9 +566,9 @@ export function WorkOrders() {
         <CardHeader>
           <CardTitle>Listado de Órdenes</CardTitle>
           <CardDescription>
-            {filteredOrders.length} orden
-            {filteredOrders.length !== 1 ? "es" : ""} encontrada
-            {filteredOrders.length !== 1 ? "s" : ""}
+            {filteredAndSortedOrders.length} orden
+            {filteredAndSortedOrders.length !== 1 ? "es" : ""} encontrada
+            {filteredAndSortedOrders.length !== 1 ? "s" : ""}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -522,8 +587,8 @@ export function WorkOrders() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.length > 0 ? (
-                  filteredOrders.map((order) => (
+                {filteredAndSortedOrders.length > 0 ? (
+                  paginatedOrders.map((order) => (
                     <TableRow
                       key={order.id}
                       className="cursor-pointer hover:bg-gray-50"
@@ -582,6 +647,45 @@ export function WorkOrders() {
               </TableBody>
             </Table>
           </div>
+
+          {filteredAndSortedOrders.length > 0 && (
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-gray-600">
+                Mostrando {startIndex + 1}-
+                {Math.min(
+                  startIndex + ITEMS_PER_PAGE,
+                  filteredAndSortedOrders.length,
+                )}{" "}
+                de {filteredAndSortedOrders.length}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+                <span className="text-sm text-gray-700">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
