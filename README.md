@@ -1,6 +1,6 @@
 # Sitio web de taller de autos
 
-Este sistema permite la gestión integral de un taller de autos, incluyendo registro de vehículos, órdenes de trabajo, gastos, cuentas, cheques y estadísticas de lavados. El diseño original está disponible en [Figma](https://www.figma.com/design/E7LxMQxiAJLNYvqmzKLqa7/Sitio-web-de-taller-de-autos).
+Este sistema permite la gestión integral de un taller de autos, incluyendo registro de vehículos, órdenes de trabajo, gastos, cuentas, cheques y estadísticas de lavados.
 
 ## Instalación y ejecución
 
