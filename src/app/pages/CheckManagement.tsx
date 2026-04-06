@@ -13,6 +13,10 @@ import {
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import {
+  DataPagination,
+  paginateItems,
+} from "../components/ui/data-pagination";
+import {
   Table,
   TableBody,
   TableCell,
@@ -49,6 +53,8 @@ import {
 } from "../components/ui/select";
 import { dataRepository } from "../../services/dataRepository";
 
+const CHEQUES_PAGE_SIZE = 10;
+
 export function CheckManagement() {
   // --- Estados Principales ---
   const [cheques, setCheques] = useState<Cheque[]>([]);
@@ -66,6 +72,7 @@ export function CheckManagement() {
   // --- Filtros e Imputación ---
   const [searchTerm, setSearchTerm] = useState("");
   const [filterEstado, setFilterEstado] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedDestinoTipo, setSelectedDestinoTipo] = useState<string>("");
   const [selectedClienteId, setSelectedClienteId] = useState("");
   const [selectedCuentaId, setSelectedCuentaId] = useState("");
@@ -92,6 +99,10 @@ export function CheckManagement() {
     window.addEventListener("app:refreshData", loadData);
     return () => window.removeEventListener("app:refreshData", loadData);
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterEstado]);
 
   // --- Lógica de Imputación (Corregida) ---
   const handleImputarCheque = async () => {
@@ -283,6 +294,11 @@ export function CheckManagement() {
   };
 
   const totalMonto = filteredCheques.reduce((sum, c) => sum + c.monto, 0);
+  const paginatedCheques = paginateItems(
+    filteredCheques,
+    currentPage,
+    CHEQUES_PAGE_SIZE,
+  );
 
   return (
     <div className="px-4 sm:px-0 space-y-6">
@@ -361,60 +377,77 @@ export function CheckManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCheques.map((cheque) => (
-                  <TableRow
-                    key={cheque.id}
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => {
-                      setSelectedCheque(cheque);
-                      setShowDetailModal(true);
-                    }}
-                  >
-                    <TableCell className="font-medium">
-                      {cheque.numero || "—"}
-                    </TableCell>
-                    <TableCell>{cheque.emisor}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      ${cheque.monto.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(cheque.estado)}>
-                        {getStatusLabel(cheque.estado)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {cheque.estado === "en-cartera" && (
+                {paginatedCheques.totalItems > 0 ? (
+                  paginatedCheques.pageItems.map((cheque) => (
+                    <TableRow
+                      key={cheque.id}
+                      className="cursor-pointer hover:bg-gray-50"
+                      onClick={() => {
+                        setSelectedCheque(cheque);
+                        setShowDetailModal(true);
+                      }}
+                    >
+                      <TableCell className="font-medium">
+                        {cheque.numero || "—"}
+                      </TableCell>
+                      <TableCell>{cheque.emisor}</TableCell>
+                      <TableCell className="text-right font-semibold">
+                        ${cheque.monto.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(cheque.estado)}>
+                          {getStatusLabel(cheque.estado)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {cheque.estado === "en-cartera" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCheque(cheque);
+                                setShowImputacionModal(true);
+                              }}
+                            >
+                              <DollarSign className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedCheque(cheque);
-                              setShowImputacionModal(true);
+                              setEditingCheque(cheque);
+                              setShowForm(true);
                             }}
                           >
-                            <DollarSign className="h-4 w-4" />
+                            <Edit2 className="h-4 w-4" />
                           </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingCheque(cheque);
-                            setShowForm(true);
-                          }}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-8 text-center text-gray-500">
+                      No hay cheques que coincidan con los filtros
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
+
+          <DataPagination
+            currentPage={paginatedCheques.currentPage}
+            totalItems={paginatedCheques.totalItems}
+            pageSize={CHEQUES_PAGE_SIZE}
+            onPageChange={setCurrentPage}
+            itemLabel="cheques"
+            className="mt-4"
+          />
         </CardContent>
       </Card>
 

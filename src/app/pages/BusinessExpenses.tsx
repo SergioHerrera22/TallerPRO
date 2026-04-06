@@ -10,6 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+import {
+  DataPagination,
+  paginateItems,
+} from "../components/ui/data-pagination";
 
 import {
   Table,
@@ -23,6 +27,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
@@ -46,6 +52,8 @@ import {
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
 import { sync } from "../../services/syncEngine";
+import { dataRepository } from "../../services/dataRepository";
+import { calculateIvaFromTotal } from "../../utils";
 
 import {
   OrdenTrabajo,
@@ -60,6 +68,16 @@ type ProviderExpenseRow = GastoProveedor & {
   cuentaId: string;
   entidad: string;
   cuentaSaldo: number;
+};
+
+const FINANCIAL_SECTION_PAGE_SIZE = 8;
+
+const INITIAL_SECTION_PAGES = {
+  ordenes: 1,
+  egresos: 1,
+  chequesClientes: 1,
+  chequesProveedores: 1,
+  deudores: 1,
 };
 
 export function BusinessExpenses() {
@@ -84,6 +102,13 @@ export function BusinessExpenses() {
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7),
   );
+  const [selectedOrdenPago, setSelectedOrdenPago] =
+    useState<OrdenTrabajo | null>(null);
+  const [montoPago, setMontoPago] = useState("");
+  const [processingOrderId, setProcessingOrderId] = useState<string | null>(
+    null,
+  );
+  const [sectionPages, setSectionPages] = useState({ ...INITIAL_SECTION_PAGES });
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -96,6 +121,10 @@ export function BusinessExpenses() {
       void loadSyncStatus();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    setSectionPages({ ...INITIAL_SECTION_PAGES });
+  }, [selectedMonth]);
 
   const loadData = async () => {
     try {
@@ -164,6 +193,91 @@ export function BusinessExpenses() {
     } else {
       toast.error("Contraseña incorrecta");
     }
+  };
+
+  const closePagoDialog = (force = false) => {
+    if (processingOrderId && !force) return;
+    setSelectedOrdenPago(null);
+    setMontoPago("");
+  };
+
+  const openPagoDialog = (orden: OrdenTrabajo) => {
+    setSelectedOrdenPago(orden);
+    setMontoPago("");
+  };
+
+  const applyPaymentToOrder = async (
+    ordenId: string,
+    amount: number,
+    successMessage: string,
+  ) => {
+    const ordenActual = ordenesTrabajo.find((orden) => orden.id === ordenId);
+
+    if (!ordenActual) {
+      toast.error("No se encontró la orden seleccionada");
+      return;
+    }
+
+    const pago = Number(amount.toFixed(2));
+
+    if (Number.isNaN(pago) || pago <= 0) {
+      toast.error("Ingresá un monto válido");
+      return;
+    }
+
+    if (pago > ordenActual.saldoPendiente) {
+      toast.error("El monto no puede superar el saldo pendiente");
+      return;
+    }
+
+    const updatedOrden: OrdenTrabajo = {
+      ...ordenActual,
+      entregasCuenta: [...(ordenActual.entregasCuenta || []), pago],
+      saldoPendiente: Math.max(
+        0,
+        Number((ordenActual.saldoPendiente - pago).toFixed(2)),
+      ),
+    };
+
+    setProcessingOrderId(ordenId);
+
+    try {
+      await dataRepository.saveOrdenTrabajo(updatedOrden);
+      setOrdenesTrabajo((current) =>
+        current.map((orden) =>
+          orden.id === updatedOrden.id ? updatedOrden : orden,
+        ),
+      );
+      toast.success(successMessage);
+
+      if (selectedOrdenPago?.id === ordenId) {
+        closePagoDialog(true);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo registrar el pago");
+    } finally {
+      setProcessingOrderId(null);
+    }
+  };
+
+  const handleSubmitPartialPayment = async () => {
+    if (!selectedOrdenPago) return;
+
+    const pago = Number(montoPago);
+    await applyPaymentToOrder(
+      selectedOrdenPago.id,
+      pago,
+      `Pago a cuenta registrado en la OT ${selectedOrdenPago.numeroOT}`,
+    );
+  };
+
+  const handlePayFullDebt = async (orden: OrdenTrabajo) => {
+    await applyPaymentToOrder(
+      orden.id,
+      orden.saldoPendiente,
+      `La OT ${orden.numeroOT} quedó saldada`,
+    );
   };
 
   const getMonthlyData = () => {
@@ -253,10 +367,13 @@ export function BusinessExpenses() {
       // Cheques imputados a proveedores/cuentas corrientes (pago) cuentan como egreso
       monthlyChequesImputadosProveedores.reduce((sum, cheque) => sum + cheque.monto, 0);
 
-    const totalIvaVentas = monthlyOrdenes.reduce((sum, orden) => {
-      const iva = orden.monto - orden.monto / 1.21;
-      return sum + iva;
-    }, 0);
+    const totalIvaCuentasCorrientes = monthlyProviderExpenses.reduce(
+      (sum, gasto) => {
+        const iva = gasto.iva > 0 ? gasto.iva : calculateIvaFromTotal(gasto.total);
+        return sum + iva;
+      },
+      0,
+    );
 
     const totalDeudas = Math.abs(
       monthlyDebts.reduce((sum, cuenta) => sum + cuenta.saldo, 0),
@@ -281,7 +398,7 @@ export function BusinessExpenses() {
       totalIngresos,
       totalIngresosCheques,
       totalEgresos,
-      totalIvaVentas,
+      totalIvaCuentasCorrientes,
       totalDeudas,
       totalDeudores,
       balance: totalIngresos + totalIngresosCheques - totalEgresos,
@@ -289,6 +406,53 @@ export function BusinessExpenses() {
   };
 
   const monthlyData = getMonthlyData();
+  const egresosRows = [
+    ...monthlyData.expenses.map((expense) => ({
+      kind: "expense" as const,
+      id: expense.id,
+      expense,
+    })),
+    ...monthlyData.providerExpenses.map((gasto) => ({
+      kind: "provider" as const,
+      id: `${gasto.cuentaId}-${gasto.id}`,
+      gasto,
+    })),
+  ];
+  const paginatedOrdenes = paginateItems(
+    monthlyData.ordenes,
+    sectionPages.ordenes,
+    FINANCIAL_SECTION_PAGE_SIZE,
+  );
+  const paginatedEgresos = paginateItems(
+    egresosRows,
+    sectionPages.egresos,
+    FINANCIAL_SECTION_PAGE_SIZE,
+  );
+  const paginatedChequesClientes = paginateItems(
+    monthlyData.chequesImputadosClientes,
+    sectionPages.chequesClientes,
+    FINANCIAL_SECTION_PAGE_SIZE,
+  );
+  const paginatedChequesProveedores = paginateItems(
+    monthlyData.chequesImputadosProveedores,
+    sectionPages.chequesProveedores,
+    FINANCIAL_SECTION_PAGE_SIZE,
+  );
+  const paginatedDeudores = paginateItems(
+    monthlyData.deudores,
+    sectionPages.deudores,
+    FINANCIAL_SECTION_PAGE_SIZE,
+  );
+
+  const updateSectionPage = (
+    section: keyof typeof INITIAL_SECTION_PAGES,
+    page: number,
+  ) => {
+    setSectionPages((current) => ({
+      ...current,
+      [section]: page,
+    }));
+  };
 
   if (!isAuthenticated) {
     return (
@@ -333,6 +497,55 @@ export function BusinessExpenses() {
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
         <div className="max-w-7xl mx-auto space-y-6">
+          <Dialog
+            open={Boolean(selectedOrdenPago)}
+            onOpenChange={(open) => {
+              if (!open) closePagoDialog();
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Registrar pago a cuenta</DialogTitle>
+                <DialogDescription>
+                  {selectedOrdenPago
+                    ? `OT ${selectedOrdenPago.numeroOT} de ${selectedOrdenPago.cliente}. Saldo pendiente actual: $${selectedOrdenPago.saldoPendiente.toFixed(2)}`
+                    : "Ingresá el monto que entrega el cliente."}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-2">
+                <Label htmlFor="monto-pago-cuenta">Monto entregado</Label>
+                <Input
+                  id="monto-pago-cuenta"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  max={selectedOrdenPago?.saldoPendiente ?? undefined}
+                  value={montoPago}
+                  onChange={(e) => setMontoPago(e.target.value)}
+                  placeholder="Ej: 5000"
+                  disabled={Boolean(processingOrderId)}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={closePagoDialog}
+                  disabled={Boolean(processingOrderId)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleSubmitPartialPayment}
+                  disabled={Boolean(processingOrderId)}
+                >
+                  Guardar pago
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           {/* Header */}
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
@@ -515,15 +728,15 @@ export function BusinessExpenses() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Receipt className="h-4 w-4 text-green-600" />
-                  IVA Ventas (Órdenes de Trabajo)
+                  IVA Cuentas Corrientes
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-700">
-                  ${monthlyData.totalIvaVentas.toFixed(2)}
+                  ${monthlyData.totalIvaCuentasCorrientes.toFixed(2)}
                 </div>
                 <p className="text-xs text-gray-500">
-                  Total de IVA incluido en lo facturado de OT (21%)
+                  Total de IVA incluido en los gastos de cuentas corrientes del mes
                 </p>
               </CardContent>
             </Card>
@@ -558,8 +771,8 @@ export function BusinessExpenses() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {monthlyData.ordenes.length > 0 ? (
-                        monthlyData.ordenes.map((orden) => (
+                      {paginatedOrdenes.totalItems > 0 ? (
+                        paginatedOrdenes.pageItems.map((orden) => (
                           <TableRow key={orden.id}>
                             <TableCell className="text-sm">
                               {new Date(orden.fecha).toLocaleDateString(
@@ -593,6 +806,15 @@ export function BusinessExpenses() {
                     </TableBody>
                   </Table>
                 </div>
+
+                <DataPagination
+                  currentPage={paginatedOrdenes.currentPage}
+                  totalItems={paginatedOrdenes.totalItems}
+                  pageSize={FINANCIAL_SECTION_PAGE_SIZE}
+                  onPageChange={(page) => updateSectionPage("ordenes", page)}
+                  itemLabel="órdenes"
+                  className="mt-4"
+                />
               </CardContent>
             </Card>
 
@@ -623,83 +845,89 @@ export function BusinessExpenses() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {/* Gastos normales */}
-                      {monthlyData.expenses.map((expense) => (
-                        <TableRow key={expense.id}>
-                          <TableCell className="text-sm">
-                            {new Date(expense.fecha).toLocaleDateString(
-                              "es-AR",
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
-                              {expense.categoria}
-                            </span>
-                          </TableCell>
-                          <TableCell
-                            className="max-w-xs truncate"
-                            title={expense.descripcion}
-                          >
-                            {expense.descripcion}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-red-600">
-                            ${expense.total.toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {/* Gastos de proveedores */}
-                      {monthlyData.providerExpenses.map((gasto) => (
-                        <TableRow key={`${gasto.cuentaId}-${gasto.id}`}>
-                          <TableCell className="text-sm">
-                            {new Date(gasto.fecha).toLocaleDateString("es-AR")}
-                          </TableCell>
-                          <TableCell>
-                            <span className="px-2 py-1 bg-red-100 rounded-full text-xs">
-                              Proveedor
-                            </span>
-                          </TableCell>
-                          <TableCell
-                            className="max-w-xs truncate"
-                            title={gasto.detalleProducto}
-                          >
-                            <div className="flex flex-col">
-                              <span>{gasto.detalleProducto}</span>
-                              <span className="text-xs text-gray-500">
-                                {gasto.entidad}
+                      {paginatedEgresos.pageItems.map((item) =>
+                        item.kind === "expense" ? (
+                          <TableRow key={item.id}>
+                            <TableCell className="text-sm">
+                              {new Date(item.expense.fecha).toLocaleDateString(
+                                "es-AR",
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
+                                {item.expense.categoria}
                               </span>
-                            </div>
-                          </TableCell>
-                          <TableCell
-                            className={`text-right font-semibold ${
-                              gasto.cuentaSaldo >= 0
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                            title={
-                              gasto.cuentaSaldo >= 0
-                                ? "Saldado"
-                                : "Pendiente (saldo proveedor negativo)"
-                            }
-                          >
-                            ${gasto.total.toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {/* Si no hay gastos */}
-                      {monthlyData.expenses.length === 0 &&
-                        monthlyData.providerExpenses.length === 0 && (
-                          <TableRow>
+                            </TableCell>
                             <TableCell
-                              colSpan={4}
-                              className="text-center py-8 text-gray-500"
+                              className="max-w-xs truncate"
+                              title={item.expense.descripcion}
                             >
-                              No hay gastos registrados en este mes
+                              {item.expense.descripcion}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-red-600">
+                              ${item.expense.total.toFixed(2)}
                             </TableCell>
                           </TableRow>
-                        )}
+                        ) : (
+                          <TableRow key={item.id}>
+                            <TableCell className="text-sm">
+                              {new Date(item.gasto.fecha).toLocaleDateString("es-AR")}
+                            </TableCell>
+                            <TableCell>
+                              <span className="px-2 py-1 bg-red-100 rounded-full text-xs">
+                                Proveedor
+                              </span>
+                            </TableCell>
+                            <TableCell
+                              className="max-w-xs truncate"
+                              title={item.gasto.detalleProducto}
+                            >
+                              <div className="flex flex-col">
+                                <span>{item.gasto.detalleProducto}</span>
+                                <span className="text-xs text-gray-500">
+                                  {item.gasto.entidad}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell
+                              className={`text-right font-semibold ${
+                                item.gasto.cuentaSaldo >= 0
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                              title={
+                                item.gasto.cuentaSaldo >= 0
+                                  ? "Saldado"
+                                  : "Pendiente (saldo proveedor negativo)"
+                              }
+                            >
+                              ${item.gasto.total.toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ),
+                      )}
+                      {paginatedEgresos.totalItems === 0 && (
+                        <TableRow>
+                          <TableCell
+                            colSpan={4}
+                            className="text-center py-8 text-gray-500"
+                          >
+                            No hay gastos registrados en este mes
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
+
+                <DataPagination
+                  currentPage={paginatedEgresos.currentPage}
+                  totalItems={paginatedEgresos.totalItems}
+                  pageSize={FINANCIAL_SECTION_PAGE_SIZE}
+                  onPageChange={(page) => updateSectionPage("egresos", page)}
+                  itemLabel="egresos"
+                  className="mt-4"
+                />
               </CardContent>
             </Card>
           </div>
@@ -733,7 +961,7 @@ export function BusinessExpenses() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {monthlyData.chequesImputadosClientes.map((cheque) => {
+                      {paginatedChequesClientes.pageItems.map((cheque) => {
                         // Buscar el cliente correspondiente por clienteId
                         const clienteCorrespondiente = vehicles.find(
                           (v) => v.id === cheque.clienteId,
@@ -765,6 +993,17 @@ export function BusinessExpenses() {
                     </TableBody>
                   </Table>
                 </div>
+
+                <DataPagination
+                  currentPage={paginatedChequesClientes.currentPage}
+                  totalItems={paginatedChequesClientes.totalItems}
+                  pageSize={FINANCIAL_SECTION_PAGE_SIZE}
+                  onPageChange={(page) =>
+                    updateSectionPage("chequesClientes", page)
+                  }
+                  itemLabel="cheques"
+                  className="mt-4"
+                />
               </CardContent>
             </Card>
           )}
@@ -798,7 +1037,7 @@ export function BusinessExpenses() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {monthlyData.chequesImputadosProveedores.map((cheque) => (
+                      {paginatedChequesProveedores.pageItems.map((cheque) => (
                         <TableRow key={cheque.id}>
                           <TableCell className="text-sm">
                             {cheque.fechaImputacion
@@ -820,6 +1059,17 @@ export function BusinessExpenses() {
                     </TableBody>
                   </Table>
                 </div>
+
+                <DataPagination
+                  currentPage={paginatedChequesProveedores.currentPage}
+                  totalItems={paginatedChequesProveedores.totalItems}
+                  pageSize={FINANCIAL_SECTION_PAGE_SIZE}
+                  onPageChange={(page) =>
+                    updateSectionPage("chequesProveedores", page)
+                  }
+                  itemLabel="cheques"
+                  className="mt-4"
+                />
               </CardContent>
             </Card>
           )}
@@ -844,6 +1094,7 @@ export function BusinessExpenses() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>OT</TableHead>
                       <TableHead>Cliente</TableHead>
                       <TableHead>Teléfono</TableHead>
                       <TableHead>Patente</TableHead>
@@ -852,9 +1103,12 @@ export function BusinessExpenses() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {monthlyData.deudores.length > 0 ? (
-                      monthlyData.deudores.map((orden) => (
+                    {paginatedDeudores.totalItems > 0 ? (
+                      paginatedDeudores.pageItems.map((orden) => (
                         <TableRow key={orden.id}>
+                          <TableCell className="font-medium">
+                            {orden.numeroOT}
+                          </TableCell>
                           <TableCell className="font-medium">
                             {orden.cliente}
                           </TableCell>
@@ -866,28 +1120,47 @@ export function BusinessExpenses() {
                             ${orden.saldoPendiente.toFixed(2)}
                           </TableCell>
                           <TableCell className="text-center">
-                            {orden.telefono && (
+                            <div className="flex flex-wrap items-center justify-center gap-2">
+                              {orden.telefono && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    const mensaje = `Hola ${orden.cliente}, le recordamos que tiene un saldo pendiente de $${orden.saldoPendiente.toFixed(2)} por la orden ${orden.numeroOT} del vehículo ${orden.patente}.`;
+                                    const url = `https://wa.me/549${orden.telefono!.replace(/\D/g, "")}?text=${encodeURIComponent(mensaje)}`;
+                                    window.open(url, "_blank");
+                                  }}
+                                  className="gap-1"
+                                >
+                                  <MessageCircle className="h-4 w-4" />
+                                  WhatsApp
+                                </Button>
+                              )}
+
                               <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  const mensaje = `Hola ${orden.cliente}, le recordamos que tiene un saldo pendiente de $${orden.saldoPendiente.toFixed(2)} por la orden ${orden.numeroOT} del vehículo ${orden.patente}.`;
-                                  const url = `https://wa.me/549${orden.telefono!.replace(/\D/g, "")}?text=${encodeURIComponent(mensaje)}`;
-                                  window.open(url, "_blank");
-                                }}
-                                className="gap-1"
+                                variant="secondary"
+                                onClick={() => openPagoDialog(orden)}
+                                disabled={processingOrderId === orden.id}
                               >
-                                <MessageCircle className="h-4 w-4" />
-                                WhatsApp
+                                Pago a cuenta
                               </Button>
-                            )}
+
+                              <Button
+                                size="sm"
+                                onClick={() => handlePayFullDebt(orden)}
+                                disabled={processingOrderId === orden.id}
+                              >
+                                Pagar todo
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={5}
+                          colSpan={6}
                           className="text-center py-8 text-gray-500"
                         >
                           No hay clientes con deudas pendientes
@@ -897,6 +1170,15 @@ export function BusinessExpenses() {
                   </TableBody>
                 </Table>
               </div>
+
+              <DataPagination
+                currentPage={paginatedDeudores.currentPage}
+                totalItems={paginatedDeudores.totalItems}
+                pageSize={FINANCIAL_SECTION_PAGE_SIZE}
+                onPageChange={(page) => updateSectionPage("deudores", page)}
+                itemLabel="deudas"
+                className="mt-4"
+              />
             </CardContent>
           </Card>
 

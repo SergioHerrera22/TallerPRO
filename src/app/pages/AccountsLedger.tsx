@@ -12,6 +12,10 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import {
+  DataPagination,
+  paginateItems,
+} from "../components/ui/data-pagination";
+import {
   Table,
   TableBody,
   TableCell,
@@ -45,8 +49,11 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { createId } from "../../utils";
+import { calculateIvaFromTotal, createId } from "../../utils";
 import { dataRepository } from "../../services/dataRepository";
+
+const CUENTAS_PAGE_SIZE = 8;
+const GASTOS_PAGE_SIZE = 6;
 
 export function AccountsLedger() {
   // Eliminar gasto de proveedor
@@ -70,6 +77,8 @@ export function AccountsLedger() {
   const [cuentas, setCuentas] = useState<CuentaCorriente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTipo, setFilterTipo] = useState<string>("all");
+  const [cuentasPage, setCuentasPage] = useState(1);
+  const [gastosPage, setGastosPage] = useState(1);
 
   const [showCuentaDialog, setShowCuentaDialog] = useState(false);
   const [editingCuenta, setEditingCuenta] = useState<CuentaCorriente | null>(
@@ -91,6 +100,7 @@ export function AccountsLedger() {
   const [gastoFormData, setGastoFormData] = useState({
     fecha: new Date().toISOString().split("T")[0],
     detalleProducto: "",
+    iva: 0,
     total: 0,
   });
 
@@ -102,6 +112,10 @@ export function AccountsLedger() {
     window.addEventListener("app:refreshData", loadCuentas);
     return () => window.removeEventListener("app:refreshData", loadCuentas);
   }, []);
+
+  useEffect(() => {
+    setCuentasPage(1);
+  }, [searchTerm, filterTipo]);
 
   const loadCuentas = async () => {
     const cuentasDB = await db.cuentasCorrientes.toArray();
@@ -187,11 +201,13 @@ export function AccountsLedger() {
       return;
     }
 
+    const iva = calculateIvaFromTotal(gastoFormData.total);
+
     const nuevoGasto: GastoProveedor = {
       id: crypto.randomUUID(),
       fecha: gastoFormData.fecha,
       detalleProducto: gastoFormData.detalleProducto,
-      iva: 0,
+      iva,
       total: gastoFormData.total,
       createdAt: new Date().toISOString(),
     };
@@ -216,6 +232,7 @@ export function AccountsLedger() {
 
   const handleViewGastos = (cuenta: CuentaCorriente) => {
     setSelectedCuenta(cuenta);
+    setGastosPage(1);
 
     setShowGastosListDialog(true);
   };
@@ -238,6 +255,19 @@ export function AccountsLedger() {
   const totalSaldoNegativo = cuentasProveedores.reduce(
     (sum, c) => sum + (c.saldo < 0 ? Math.abs(c.saldo) : 0),
     0,
+  );
+  const paginatedCuentas = paginateItems(
+    filteredCuentas,
+    cuentasPage,
+    CUENTAS_PAGE_SIZE,
+  );
+  const sortedGastos = [...(selectedCuenta?.gastos || [])].sort(
+    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+  );
+  const paginatedGastos = paginateItems(
+    sortedGastos,
+    gastosPage,
+    GASTOS_PAGE_SIZE,
   );
 
   return (
@@ -350,8 +380,8 @@ export function AccountsLedger() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCuentas.length > 0 ? (
-                  filteredCuentas.map((cuenta) => (
+                {paginatedCuentas.totalItems > 0 ? (
+                  paginatedCuentas.pageItems.map((cuenta) => (
                     <TableRow key={cuenta.id}>
                       <TableCell className="font-medium">
                         {cuenta.entidad || "Sin nombre"}
@@ -436,6 +466,15 @@ export function AccountsLedger() {
               </TableBody>
             </Table>
           </div>
+
+          <DataPagination
+            currentPage={paginatedCuentas.currentPage}
+            totalItems={paginatedCuentas.totalItems}
+            pageSize={CUENTAS_PAGE_SIZE}
+            onPageChange={setCuentasPage}
+            itemLabel="cuentas"
+            className="mt-4"
+          />
         </CardContent>
       </Card>
 
@@ -607,13 +646,7 @@ export function AccountsLedger() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedCuenta.gastos
-                      .sort(
-                        (a, b) =>
-                          new Date(b.fecha).getTime() -
-                          new Date(a.fecha).getTime(),
-                      )
-                      .map((gasto) => (
+                    {paginatedGastos.pageItems.map((gasto) => (
                         <TableRow key={gasto.id}>
                           <TableCell className="text-sm">
                             {new Date(gasto.fecha).toLocaleDateString("es-AR")}
@@ -644,6 +677,15 @@ export function AccountsLedger() {
                       ))}
                   </TableBody>
                 </Table>
+
+                <DataPagination
+                  currentPage={paginatedGastos.currentPage}
+                  totalItems={paginatedGastos.totalItems}
+                  pageSize={GASTOS_PAGE_SIZE}
+                  onPageChange={setGastosPage}
+                  itemLabel="gastos"
+                  className="mt-4"
+                />
               </div>
             ) : (
               <div className="text-center py-8">
