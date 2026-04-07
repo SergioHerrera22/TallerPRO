@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { OrdenTrabajo } from "../types";
 import { db } from "../../db";
+import { formatLocalDate } from "../../utils";
 
 import {
   Card,
@@ -276,7 +277,7 @@ export function WashStatistics() {
                     .map((order) => (
                       <TableRow key={order.id}>
                         <TableCell className="text-sm">
-                          {new Date(order.fecha).toLocaleDateString("es-AR")}
+                          {formatLocalDate(order.fecha)}
                         </TableCell>
                         <TableCell className="font-medium">
                           {order.patente}

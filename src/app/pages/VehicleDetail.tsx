@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Vehicle, OrdenTrabajo } from "../types";
 import { db } from "../../db";
-import { createId } from "../../utils";
+import { createId, formatLocalDate } from "../../utils";
 
 import { Button } from "../components/ui/button";
 import {
@@ -236,7 +236,7 @@ export function VehicleDetail() {
                 <p className="font-semibold">{orders[0].numeroOT}</p>
                 <p className="text-sm text-gray-600">{orders[0].descripcion}</p>
                 <p className="text-sm text-gray-500">
-                  {new Date(orders[0].fecha).toLocaleDateString("es-AR")}
+                  {formatLocalDate(orders[0].fecha)}
                 </p>
               </div>
             ) : (
@@ -314,7 +314,7 @@ export function VehicleDetail() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                     <div className="flex items-center gap-2 text-gray-600">
                       <Calendar className="h-4 w-4" />
-                      {new Date(order.fecha).toLocaleDateString("es-AR")}
+                      {formatLocalDate(order.fecha)}
                     </div>
                   </div>
                 </div>

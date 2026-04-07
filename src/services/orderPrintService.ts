@@ -2,6 +2,7 @@ import { PDFDocument } from "pdf-lib";
 import jsPDF, { jsPDFOptions } from "jspdf";
 import html2canvas from "html2canvas";
 import { OrdenTrabajo } from "../app/types";
+import { formatLocalDate } from "../utils";
 import checkPdfUrl from "./check.pdf?url";
 
 async function htmlCanvasToPdf(htmlString: string): Promise<ArrayBuffer> {
@@ -99,7 +100,7 @@ function buildOrderWithoutPricesHtml(order: OrdenTrabajo) {
               </div>
               <div>
                 <div class="label">Fecha</div>
-                <div class="value">${new Date(order.fecha).toLocaleDateString("es-AR")}</div>
+                <div class="value">${formatLocalDate(order.fecha)}</div>
               </div>
             </div>
           </div>
@@ -213,7 +214,7 @@ function buildOrderWithPricesHtml(order: OrdenTrabajo) {
               </div>
               <div>
                 <div class="label">Fecha</div>
-                <div class="value">${new Date(order.fecha).toLocaleDateString("es-AR")}</div>
+                <div class="value">${formatLocalDate(order.fecha)}</div>
               </div>
             </div>
           </div>

@@ -49,7 +49,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { calculateIvaFromTotal, createId } from "../../utils";
+import { calculateIvaFromTotal, createId, formatLocalDate } from "../../utils";
 import { dataRepository } from "../../services/dataRepository";
 
 const CUENTAS_PAGE_SIZE = 8;
@@ -647,34 +647,34 @@ export function AccountsLedger() {
                   </TableHeader>
                   <TableBody>
                     {paginatedGastos.pageItems.map((gasto) => (
-                        <TableRow key={gasto.id}>
-                          <TableCell className="text-sm">
-                            {new Date(gasto.fecha).toLocaleDateString("es-AR")}
-                          </TableCell>
-                          <TableCell
-                            className="max-w-xs truncate"
-                            title={gasto.detalleProducto}
+                      <TableRow key={gasto.id}>
+                        <TableCell className="text-sm">
+                          {formatLocalDate(gasto.fecha)}
+                        </TableCell>
+                        <TableCell
+                          className="max-w-xs truncate"
+                          title={gasto.detalleProducto}
+                        >
+                          {gasto.detalleProducto}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          ${gasto.total.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() =>
+                              handleDeleteGasto(selectedCuenta.id, gasto.id)
+                            }
+                            title="Eliminar gasto"
                           >
-                            {gasto.detalleProducto}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            ${gasto.total.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() =>
-                                handleDeleteGasto(selectedCuenta.id, gasto.id)
-                              }
-                              title="Eliminar gasto"
-                            >
-                              Eliminar
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                            Eliminar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
 

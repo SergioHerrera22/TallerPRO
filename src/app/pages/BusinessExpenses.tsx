@@ -53,7 +53,7 @@ import { toast } from "sonner";
 import { Layout } from "../components/Layout";
 import { sync } from "../../services/syncEngine";
 import { dataRepository } from "../../services/dataRepository";
-import { calculateIvaFromTotal } from "../../utils";
+import { calculateIvaFromTotal, formatLocalDate } from "../../utils";
 
 import {
   OrdenTrabajo,
@@ -108,7 +108,9 @@ export function BusinessExpenses() {
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(
     null,
   );
-  const [sectionPages, setSectionPages] = useState({ ...INITIAL_SECTION_PAGES });
+  const [sectionPages, setSectionPages] = useState({
+    ...INITIAL_SECTION_PAGES,
+  });
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -365,11 +367,15 @@ export function BusinessExpenses() {
       monthlyExpenses.reduce((sum, expense) => sum + expense.total, 0) +
       monthlyProviderExpenses.reduce((sum, gasto) => sum + gasto.total, 0) +
       // Cheques imputados a proveedores/cuentas corrientes (pago) cuentan como egreso
-      monthlyChequesImputadosProveedores.reduce((sum, cheque) => sum + cheque.monto, 0);
+      monthlyChequesImputadosProveedores.reduce(
+        (sum, cheque) => sum + cheque.monto,
+        0,
+      );
 
     const totalIvaCuentasCorrientes = monthlyProviderExpenses.reduce(
       (sum, gasto) => {
-        const iva = gasto.iva > 0 ? gasto.iva : calculateIvaFromTotal(gasto.total);
+        const iva =
+          gasto.iva > 0 ? gasto.iva : calculateIvaFromTotal(gasto.total);
         return sum + iva;
       },
       0,
@@ -591,7 +597,9 @@ export function BusinessExpenses() {
           <Card className="bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2">
-                <RefreshCw className={`h-5 w-5 ${isSyncingNow ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`h-5 w-5 ${isSyncingNow ? "animate-spin" : ""}`}
+                />
                 Estado de sincronización
               </CardTitle>
               <CardDescription>
@@ -603,7 +611,9 @@ export function BusinessExpenses() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="space-y-1 text-sm">
                   <div className="text-gray-700">
-                    <span className="font-medium">Última sincronización OK:</span>{" "}
+                    <span className="font-medium">
+                      Última sincronización OK:
+                    </span>{" "}
                     {lastSyncOkAt
                       ? new Date(lastSyncOkAt).toLocaleString("es-AR")
                       : "—"}
@@ -627,7 +637,9 @@ export function BusinessExpenses() {
                     className="gap-2"
                     disabled={isSyncingNow}
                   >
-                    <RefreshCw className={`h-4 w-4 ${isSyncingNow ? "animate-spin" : ""}`} />
+                    <RefreshCw
+                      className={`h-4 w-4 ${isSyncingNow ? "animate-spin" : ""}`}
+                    />
                     Reintentar sincronización
                   </Button>
                 </div>
@@ -736,7 +748,8 @@ export function BusinessExpenses() {
                   ${monthlyData.totalIvaCuentasCorrientes.toFixed(2)}
                 </div>
                 <p className="text-xs text-gray-500">
-                  Total de IVA incluido en los gastos de cuentas corrientes del mes
+                  Total de IVA incluido en los gastos de cuentas corrientes del
+                  mes
                 </p>
               </CardContent>
             </Card>
@@ -775,9 +788,7 @@ export function BusinessExpenses() {
                         paginatedOrdenes.pageItems.map((orden) => (
                           <TableRow key={orden.id}>
                             <TableCell className="text-sm">
-                              {new Date(orden.fecha).toLocaleDateString(
-                                "es-AR",
-                              )}
+                              {formatLocalDate(orden.fecha)}
                             </TableCell>
                             <TableCell className="font-medium">
                               {orden.cliente}
@@ -849,9 +860,7 @@ export function BusinessExpenses() {
                         item.kind === "expense" ? (
                           <TableRow key={item.id}>
                             <TableCell className="text-sm">
-                              {new Date(item.expense.fecha).toLocaleDateString(
-                                "es-AR",
-                              )}
+                              {formatLocalDate(item.expense.fecha)}
                             </TableCell>
                             <TableCell>
                               <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
@@ -871,7 +880,7 @@ export function BusinessExpenses() {
                         ) : (
                           <TableRow key={item.id}>
                             <TableCell className="text-sm">
-                              {new Date(item.gasto.fecha).toLocaleDateString("es-AR")}
+                              {formatLocalDate(item.gasto.fecha)}
                             </TableCell>
                             <TableCell>
                               <span className="px-2 py-1 bg-red-100 rounded-full text-xs">
@@ -1041,15 +1050,15 @@ export function BusinessExpenses() {
                         <TableRow key={cheque.id}>
                           <TableCell className="text-sm">
                             {cheque.fechaImputacion
-                              ? new Date(cheque.fechaImputacion).toLocaleDateString(
-                                  "es-AR",
-                                )
+                              ? formatLocalDate(cheque.fechaImputacion)
                               : "—"}
                           </TableCell>
                           <TableCell className="font-medium">
                             {cheque.numero || "—"}
                           </TableCell>
-                          <TableCell>{cheque.destino || "Cuenta Corriente"}</TableCell>
+                          <TableCell>
+                            {cheque.destino || "Cuenta Corriente"}
+                          </TableCell>
                           <TableCell>{cheque.emisor}</TableCell>
                           <TableCell className="text-right font-semibold text-blue-600">
                             ${cheque.monto.toFixed(2)}

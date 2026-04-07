@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { OrdenTrabajo, Vehicle } from "../types";
 import { db } from "../../db";
-import { createId } from "../../utils";
+import { createId, formatLocalDate } from "../../utils";
 
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -117,12 +117,7 @@ export function WorkOrders() {
         <div class="grid">
           <div>
             <div class="label">Fecha</div>
-            <div class="value">${new Date(order.fecha).toLocaleDateString(
-              "es-AR",
-            )}</div>
-          </div>
-          <div>
-            <div class="label">Estado</div>
+            <div class="value">${formatLocalDate(order.fecha)}</div>
             <div class="value">${
               order.estado.charAt(0).toUpperCase() + order.estado.slice(1)
             }</div>
@@ -285,9 +280,7 @@ export function WorkOrders() {
           </div>
           <div>
             <div class="label">Fecha</div>
-            <div class="value">${new Date(order.fecha).toLocaleDateString(
-              "es-AR",
-            )}</div>
+            <div class="value">${formatLocalDate(order.fecha)}</div>
           </div>
           <div>
             <div class="label">Importe total</div>
@@ -602,9 +595,7 @@ export function WorkOrders() {
                       </TableCell>
                       <TableCell>{order.patente}</TableCell>
                       <TableCell>{order.cliente}</TableCell>
-                      <TableCell>
-                        {new Date(order.fecha).toLocaleDateString("es-AR")}
-                      </TableCell>
+                      <TableCell>{formatLocalDate(order.fecha)}</TableCell>
                       <TableCell>${order.monto.toFixed(2)}</TableCell>
                       <TableCell>
                         {order.lavado ? (

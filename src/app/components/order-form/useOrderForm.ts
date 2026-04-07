@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LineaRepuesto, OrdenTrabajo, Vehicle } from "../../types";
+import { todayLocalISODate } from "../../../utils";
 import type { OrderFormData } from "./types";
 
 function emptyForm(): OrderFormData {
@@ -8,7 +9,7 @@ function emptyForm(): OrderFormData {
     patente: "",
     cliente: "",
     telefono: "",
-    fecha: new Date().toISOString().split("T")[0],
+    fecha: todayLocalISODate(),
     descripcion: "",
     repuestos: [],
     manoDeObra: 0,
@@ -150,8 +151,7 @@ export function useOrderForm(params: {
       const current = repuestos[index] ?? { detalle: "", precio: 0 };
       repuestos[index] = {
         ...current,
-        [field]:
-          field === "precio" ? (Number(value) || 0) : String(value ?? ""),
+        [field]: field === "precio" ? Number(value) || 0 : String(value ?? ""),
       };
       return recomputeTotals({ ...prev, repuestos });
     });
@@ -192,7 +192,9 @@ export function useOrderForm(params: {
     setFormData((prev) =>
       recomputeTotals({
         ...prev,
-        entregasCuenta: (prev.entregasCuenta || []).filter((_, i) => i !== index),
+        entregasCuenta: (prev.entregasCuenta || []).filter(
+          (_, i) => i !== index,
+        ),
       }),
     );
   };
@@ -215,4 +217,3 @@ export function useOrderForm(params: {
     reset,
   };
 }
-

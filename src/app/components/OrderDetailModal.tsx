@@ -1,5 +1,6 @@
 import React from "react";
 import { OrdenTrabajo } from "../types";
+import { formatLocalDate } from "../../utils";
 import {
   Dialog,
   DialogContent,
@@ -72,7 +73,7 @@ export function OrderDetailModal({
             <div>
               <p className="text-sm text-gray-600">Fecha</p>
               <p className="text-lg font-semibold">
-                {new Date(order.fecha).toLocaleDateString("es-AR")}
+                {formatLocalDate(order.fecha)}
               </p>
             </div>
             <div>
