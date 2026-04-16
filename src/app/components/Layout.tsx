@@ -10,6 +10,7 @@ import {
   Shield,
   RefreshCw,
   Menu,
+  LogOut,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -22,6 +23,8 @@ import {
   SheetTrigger,
   SheetClose,
 } from "./ui/sheet";
+
+const AUTH_STORAGE_KEY = "tallerpro.auth.front";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -60,6 +63,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    toast.success("Sesión cerrada");
+    window.location.reload();
   };
 
   return (
@@ -152,6 +161,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <span className="hidden sm:inline">Actualizar Datos</span>
                 </Button>
               )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Cerrar sesión</span>
+              </Button>
             </div>
           </div>
         </div>

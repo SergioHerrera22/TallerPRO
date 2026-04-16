@@ -6,17 +6,24 @@ Este sistema permite la gestión integral de un taller de autos, incluyendo regi
 
 1. Instala las dependencias:
 
-
-    ```
-    npm install
-    ```
+   ```
+   npm install
+   ```
 
 2. Inicia el servidor de desarrollo:
 
+   ```
+   npm run dev
+   ```
 
-    ```
-    npm run dev
-    ```
+## Seguridad: Login local en frontend
+
+El acceso está protegido por un formulario de inicio de sesión validado en frontend.
+
+- Usuario: admin2025
+- Clave: taller2025
+
+Nota: esta validación es solo del lado cliente y no reemplaza un sistema de autenticación backend para entornos de alta seguridad.
 
 ## Dependencias principales
 

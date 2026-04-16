@@ -314,6 +314,7 @@ export function WorkOrders() {
 
   const handleCreateOrder = async (
     data: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
+    options?: { kilometrosActuales?: number },
   ) => {
     const vehicle = vehicles.find((v) => v.id === data.vehicleId);
 
@@ -329,6 +330,23 @@ export function WorkOrders() {
     };
 
     await dataRepository.saveOrdenTrabajo(newOrder);
+
+    if (vehicle && typeof options?.kilometrosActuales === "number") {
+      const kilometrosActuales = options.kilometrosActuales;
+
+      if (kilometrosActuales !== vehicle.kilometros) {
+        const updatedVehicle: Vehicle = {
+          ...vehicle,
+          kilometros: kilometrosActuales,
+        };
+
+        await dataRepository.saveVehicle(updatedVehicle);
+
+        setVehicles((prev) =>
+          prev.map((v) => (v.id === updatedVehicle.id ? updatedVehicle : v)),
+        );
+      }
+    }
 
     setOrders([...orders, newOrder]);
 
@@ -687,8 +705,10 @@ export function WorkOrders() {
           setShowForm(false);
           setEditingOrder(undefined);
         }}
-        onSubmit={(data) =>
-          editingOrder ? handleUpdateOrder(data) : handleCreateOrder(data)
+        onSubmit={(data, options) =>
+          editingOrder
+            ? handleUpdateOrder(data)
+            : handleCreateOrder(data, options)
         }
         vehicles={vehicles}
         initialData={editingOrder}

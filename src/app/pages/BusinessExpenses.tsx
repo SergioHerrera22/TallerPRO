@@ -42,9 +42,6 @@ import {
   Users,
   Receipt,
   Calendar,
-  Lock,
-  Eye,
-  EyeOff,
   MessageCircle,
   RefreshCw,
 } from "lucide-react";
@@ -81,10 +78,6 @@ const INITIAL_SECTION_PAGES = {
 };
 
 export function BusinessExpenses() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showPasswordDialog, setShowPasswordDialog] = useState(true);
   const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [outboxPendingCount, setOutboxPendingCount] = useState(0);
   const [lastSyncOkAt, setLastSyncOkAt] = useState<string>("");
@@ -113,16 +106,12 @@ export function BusinessExpenses() {
   });
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadData();
-    }
-  }, [isAuthenticated, selectedMonth]);
+    loadData();
+  }, [selectedMonth]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      void loadSyncStatus();
-    }
-  }, [isAuthenticated]);
+    void loadSyncStatus();
+  }, []);
 
   useEffect(() => {
     setSectionPages({ ...INITIAL_SECTION_PAGES });
@@ -185,16 +174,6 @@ export function BusinessExpenses() {
     await loadData();
     await loadSyncStatus();
     toast.success("Datos actualizados");
-  };
-
-  const handlePasswordSubmit = () => {
-    if (password === "taller2024") {
-      setIsAuthenticated(true);
-      setShowPasswordDialog(false);
-      toast.success("Acceso autorizado");
-    } else {
-      toast.error("Contraseña incorrecta");
-    }
   };
 
   const closePagoDialog = (force = false) => {
@@ -459,45 +438,6 @@ export function BusinessExpenses() {
       [section]: page,
     }));
   };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Dialog open={showPasswordDialog} onOpenChange={() => {}}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex gap-2 items-center">
-                <Lock className="h-5 w-5" />
-                Acceso Restringido
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <Label>Contraseña</Label>
-
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2"
-                >
-                  {showPassword ? <EyeOff /> : <Eye />}
-                </button>
-              </div>
-
-              <Button onClick={handlePasswordSubmit}>Acceder</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
 
   return (
     <Layout>

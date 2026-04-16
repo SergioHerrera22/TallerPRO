@@ -12,27 +12,33 @@ import {
 
 export function VehicleSection(props: {
   vehicles: Vehicle[];
+  showKilometrosUpdate: boolean;
   vehicleId: string;
   fecha: string;
   patente: string;
   cliente: string;
   telefono: string;
   tecnico: string;
+  kilometrosActuales: string;
   onVehicleChange: (vehicleId: string) => void;
   onFechaChange: (value: string) => void;
   onTecnicoChange: (value: string) => void;
+  onKilometrosActualesChange: (value: string) => void;
 }) {
   const {
     vehicles,
+    showKilometrosUpdate,
     vehicleId,
     fecha,
     patente,
     cliente,
     telefono,
     tecnico,
+    kilometrosActuales,
     onVehicleChange,
     onFechaChange,
     onTecnicoChange,
+    onKilometrosActualesChange,
   } = props;
 
   return (
@@ -69,7 +75,11 @@ export function VehicleSection(props: {
 
       <div>
         <Label htmlFor="fecha">Fecha *</Label>
-        <Input type="date" value={fecha} onChange={(e) => onFechaChange(e.target.value)} />
+        <Input
+          type="date"
+          value={fecha}
+          onChange={(e) => onFechaChange(e.target.value)}
+        />
       </div>
 
       <div>
@@ -95,7 +105,20 @@ export function VehicleSection(props: {
           onChange={(e) => onTecnicoChange(e.target.value)}
         />
       </div>
+
+      {showKilometrosUpdate ? (
+        <div>
+          <Label htmlFor="kilometrosActuales">Km actuales *</Label>
+          <Input
+            id="kilometrosActuales"
+            type="number"
+            min={0}
+            placeholder="Ingrese el kilometraje actual"
+            value={kilometrosActuales}
+            onChange={(e) => onKilometrosActualesChange(e.target.value)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
-

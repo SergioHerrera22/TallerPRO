@@ -20,7 +20,10 @@ import { ObservationsSection } from "./order-form/ObservationsSection";
 interface OrderFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">) => void;
+  onSubmit: (
+    data: Omit<OrdenTrabajo, "id" | "createdAt" | "numeroOT">,
+    options?: { kilometrosActuales?: number },
+  ) => void;
   vehicles: Vehicle[];
   initialData?: OrdenTrabajo;
 }
@@ -32,6 +35,9 @@ export function OrderForm({
   vehicles,
   initialData,
 }: OrderFormProps) {
+  const [kilometrosActuales, setKilometrosActuales] = React.useState("");
+  const previousVehicleIdRef = React.useRef("");
+
   const {
     formData,
     setField,
@@ -46,6 +52,34 @@ export function OrderForm({
     removeEntrega,
     reset,
   } = useOrderForm({ isOpen, vehicles, initialData });
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      previousVehicleIdRef.current = "";
+      setKilometrosActuales("");
+      return;
+    }
+
+    if (initialData) {
+      previousVehicleIdRef.current = formData.vehicleId;
+      setKilometrosActuales("");
+      return;
+    }
+
+    if (!formData.vehicleId) {
+      previousVehicleIdRef.current = "";
+      setKilometrosActuales("");
+      return;
+    }
+
+    if (previousVehicleIdRef.current !== formData.vehicleId) {
+      const selectedVehicle = vehicles.find((v) => v.id === formData.vehicleId);
+      setKilometrosActuales(
+        selectedVehicle ? String(selectedVehicle.kilometros ?? 0) : "",
+      );
+      previousVehicleIdRef.current = formData.vehicleId;
+    }
+  }, [formData.vehicleId, initialData, isOpen, vehicles]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +99,32 @@ export function OrderForm({
       return;
     }
 
-    onSubmit(formData);
+    let submitOptions: { kilometrosActuales?: number } | undefined;
+
+    if (!initialData) {
+      const km = Number(kilometrosActuales);
+      const selectedVehicle = vehicles.find((v) => v.id === formData.vehicleId);
+
+      if (!Number.isFinite(km) || km < 0) {
+        toast.error("Ingrese un valor válido para los km actuales");
+        return;
+      }
+
+      if (
+        selectedVehicle &&
+        Number.isFinite(selectedVehicle.kilometros) &&
+        km < selectedVehicle.kilometros
+      ) {
+        toast.error(
+          "Los km actuales no pueden ser menores al registro anterior",
+        );
+        return;
+      }
+
+      submitOptions = { kilometrosActuales: km };
+    }
+
+    onSubmit(formData, submitOptions);
     reset();
   };
 
@@ -81,15 +140,18 @@ export function OrderForm({
         <form onSubmit={handleSubmit} className="space-y-6">
           <VehicleSection
             vehicles={vehicles}
+            showKilometrosUpdate={!initialData}
             vehicleId={formData.vehicleId}
             fecha={formData.fecha}
             patente={formData.patente}
             cliente={formData.cliente}
             telefono={formData.telefono}
             tecnico={formData.tecnico}
+            kilometrosActuales={kilometrosActuales}
             onVehicleChange={handleVehicleChange}
             onFechaChange={(v) => setField("fecha", v)}
             onTecnicoChange={(v) => setField("tecnico", v)}
+            onKilometrosActualesChange={setKilometrosActuales}
           />
 
           <div className="space-y-4 border rounded-lg p-4 bg-blue-50">
