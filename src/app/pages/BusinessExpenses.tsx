@@ -330,10 +330,11 @@ export function BusinessExpenses() {
       (cheque) => !cheque.clienteId,
     );
 
-    const totalIngresos = monthlyOrdenes.reduce(
-      (sum, orden) => sum + orden.monto,
-      0,
-    );
+    const totalIngresos = monthlyOrdenes.reduce((sum, orden) => {
+      const entregas =
+        orden.entregasCuenta?.reduce((subSum, pago) => subSum + pago, 0) ?? 0;
+      return sum + entregas;
+    }, 0);
 
     // Solo cheques imputados a clientes cuentan como ingreso (cobranza de OT)
     const totalIngresosCheques = monthlyChequesImputadosClientes.reduce(
