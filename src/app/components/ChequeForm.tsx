@@ -54,7 +54,9 @@ export function ChequeForm({
   useEffect(() => {
     const load = async () => {
       const vehicles: Vehicle[] = await db.vehicles.toArray();
-      const clientesUnicos = [...new Set(vehicles.map((v) => v.cliente))].sort();
+      const clientesUnicos = [
+        ...new Set(vehicles.map((v) => v.cliente)),
+      ].sort();
       setClientes(clientesUnicos);
 
       const cuentas = await db.cuentasCorrientes.toArray();
@@ -114,7 +116,12 @@ export function ChequeForm({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>

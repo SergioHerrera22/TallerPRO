@@ -397,8 +397,9 @@ export function WorkOrders() {
 
   const handleEditOrder = (order: OrdenTrabajo) => {
     setEditingOrder(order);
+    setSelectedOrder(null);
     setShowDetailModal(false);
-    setShowForm(true);
+    requestAnimationFrame(() => setShowForm(true));
   };
 
   useEffect(() => {
