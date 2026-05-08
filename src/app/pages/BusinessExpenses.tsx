@@ -107,7 +107,7 @@ export function BusinessExpenses() {
 
   useEffect(() => {
     loadData();
-  }, [selectedMonth]);
+  }, []);
 
   useEffect(() => {
     void loadSyncStatus();
@@ -263,13 +263,34 @@ export function BusinessExpenses() {
 
   const getMonthlyData = () => {
     const [year, month] = selectedMonth.split("-");
+    const yearNumber = Number(year);
+    const monthIndex = Number(month) - 1;
+
+    if (!yearNumber || monthIndex < 0 || monthIndex > 11) {
+      return {
+        ordenes: [],
+        expenses: [],
+        providerExpenses: [],
+        debts: [],
+        deudores: [],
+        clientesUnicosConDeuda: [],
+        chequesImputadosClientes: [],
+        chequesImputadosProveedores: [],
+        totalIngresos: 0,
+        totalIngresosCheques: 0,
+        totalEgresos: 0,
+        totalIvaCuentasCorrientes: 0,
+        totalDeudas: 0,
+        totalDeudores: 0,
+        balance: 0,
+      };
+    }
 
     const monthlyOrdenes = ordenesTrabajo.filter((orden) => {
       const date = new Date(orden.fecha);
 
       return (
-        date.getFullYear() === Number(year) &&
-        date.getMonth() === Number(month) - 1
+        date.getFullYear() === yearNumber && date.getMonth() === monthIndex
       );
     });
 
@@ -391,7 +412,11 @@ export function BusinessExpenses() {
     };
   };
 
-  const monthlyData = getMonthlyData();
+  const monthlyData = React.useMemo(
+    () => getMonthlyData(),
+    [selectedMonth, ordenesTrabajo, expenses, cuentasCorrientes, cheques],
+  );
+
   const egresosRows = [
     ...monthlyData.expenses.map((expense) => ({
       kind: "expense" as const,
