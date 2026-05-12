@@ -20,6 +20,18 @@ export const todayLocalISODate = (): string => {
   return `${y}-${m}-${d}`;
 };
 
+export const formatCurrency = (
+  amount: number,
+  options?: Intl.NumberFormatOptions,
+) => {
+  if (!Number.isFinite(amount)) return "0,00";
+  return amount.toLocaleString("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    ...options,
+  });
+};
+
 export const calculateIvaFromTotal = (total: number, rate = 0.21) => {
   if (!Number.isFinite(total) || total <= 0) return 0;
 

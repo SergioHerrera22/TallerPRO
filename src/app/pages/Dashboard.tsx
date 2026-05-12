@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { createId } from "../../utils";
 import { dataRepository } from "../../services/dataRepository";
 
+const fondoImage = new URL("../assets/fondo.jpg", import.meta.url).href;
+
 export function Dashboard() {
   const ITEMS_PER_PAGE = 6;
 
@@ -195,7 +197,7 @@ export function Dashboard() {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredVehicles.length / ITEMS_PER_PAGE),
+    Math.ceil(filteredVehicles.length / ITEMS_PER_PAGE)
   );
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedVehicles = filteredVehicles.slice(
@@ -214,15 +216,23 @@ export function Dashboard() {
   }, [currentPage, totalPages]);
 
   return (
-    <div className="px-4 sm:px-0">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-gray-900 mb-2">
-          Sistema de Gestión del Taller
-        </h1>
-        <p className="text-gray-600">
-          Busque vehículos por patente o registre uno nuevo
-        </p>
-      </div>
+    <div className="relative z-10">
+      <section className="relative w-full max-w-none overflow-hidden rounded-none shadow-2xl mb-8 min-h-[28rem] px-4 sm:px-6 lg:px-8">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${fondoImage})` }}
+        />
+        <div className="absolute inset-0 bg-slate-950/75" />
+        <div className="relative px-8 py-16 sm:px-12 sm:py-24 lg:px-16 lg:py-28 max-w-5xl">
+          <h1 className="text-3xl sm:text-4xl font-semibold text-white drop-shadow-lg">
+            Sistema de Gestión del Taller
+          </h1>
+          <p className="mt-3 max-w-3xl text-lg sm:text-xl text-slate-200/90 drop-shadow-sm">
+            Busque vehículos por patente o registre uno nuevo. Mantenga todo su
+            flujo de trabajo claro y accesible.
+          </p>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
@@ -298,10 +308,10 @@ export function Dashboard() {
       </div>
 
       {vehicles.length > 0 && (
-        <Card>
+        <Card className="bg-slate-950/95 border border-white/10 text-white shadow-xl">
           <CardHeader>
             <CardTitle>Vehículos Cargados</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-slate-300">
               Visualización paginada con búsqueda por patente, cliente y modelo
             </CardDescription>
           </CardHeader>
@@ -323,21 +333,23 @@ export function Dashboard() {
               {paginatedVehicles.map((vehicle) => (
                 <div
                   key={vehicle.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 bg-slate-900/90 border border-white/10 rounded-3xl shadow-lg transition hover:bg-slate-800/95"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-blue-100 p-3 rounded-lg">
-                      <Car className="h-5 w-5 text-blue-600" />
+                  <div className="flex items-start gap-4">
+                    <div className="bg-blue-600/15 text-blue-200 p-3 rounded-2xl ring-1 ring-blue-500/20">
+                      <Car className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 text-lg">
+                      <p className="font-semibold text-white text-lg">
                         {vehicle.patente}
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-slate-300">
                         {vehicle.marca} {vehicle.modelo} ({vehicle.anio})
                       </p>
-                      <p className="text-sm text-gray-500">{vehicle.cliente}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm text-slate-400">
+                        {vehicle.cliente}
+                      </p>
+                      <p className="text-xs text-slate-500">
                         Registrado:{" "}
                         {new Date(vehicle.createdAt).toLocaleDateString(
                           "es-AR",

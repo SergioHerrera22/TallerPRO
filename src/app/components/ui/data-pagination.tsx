@@ -19,6 +19,7 @@ type DataPaginationProps = {
   pageSize: number;
   onPageChange: (page: number) => void;
   itemLabel?: string;
+  pageLabels?: string[];
   className?: string;
 };
 
@@ -56,7 +57,14 @@ function buildPaginationMarkers(
   }
 
   if (currentPage >= totalPages - 2) {
-    return [1, "ellipsis", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    return [
+      1,
+      "ellipsis",
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
   }
 
   return [
@@ -76,10 +84,15 @@ export function DataPagination({
   pageSize,
   onPageChange,
   itemLabel = "registros",
+  pageLabels,
   className,
 }: DataPaginationProps) {
-  const { currentPage: safePage, totalPages, startItem, endItem } =
-    paginateItems(Array.from({ length: totalItems }), currentPage, pageSize);
+  const {
+    currentPage: safePage,
+    totalPages,
+    startItem,
+    endItem,
+  } = paginateItems(Array.from({ length: totalItems }), currentPage, pageSize);
 
   if (totalItems === 0) {
     return null;
@@ -118,25 +131,34 @@ export function DataPagination({
               <PaginationPrevious
                 href="#"
                 onClick={(event) => handlePageChange(event, safePage - 1)}
-                className={safePage === 1 ? "pointer-events-none opacity-50" : undefined}
+                className={
+                  safePage === 1 ? "pointer-events-none opacity-50" : undefined
+                }
               />
             </PaginationItem>
 
-            {markers.map((marker, index) => (
-              <PaginationItem key={`${marker}-${index}`}>
-                {marker === "ellipsis" ? (
-                  <PaginationEllipsis />
-                ) : (
-                  <PaginationLink
-                    href="#"
-                    isActive={marker === safePage}
-                    onClick={(event) => handlePageChange(event, marker)}
-                  >
-                    {marker}
-                  </PaginationLink>
-                )}
-              </PaginationItem>
-            ))}
+            {markers.map((marker, index) => {
+              const markerLabel =
+                marker === "ellipsis"
+                  ? null
+                  : (pageLabels?.[marker - 1] ?? marker);
+
+              return (
+                <PaginationItem key={`${marker}-${index}`}>
+                  {marker === "ellipsis" ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={marker === safePage}
+                      onClick={(event) => handlePageChange(event, marker)}
+                    >
+                      {markerLabel}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              );
+            })}
 
             <PaginationItem>
               <PaginationNext
