@@ -706,11 +706,11 @@ export function BusinessExpenses() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-white flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
                   Ingresos
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-white/90">
                   Ingresos de {selectedMonthLabel}
                 </CardDescription>
               </CardHeader>
@@ -722,7 +722,7 @@ export function BusinessExpenses() {
                       monthlyData.totalIngresosCheques,
                   )}
                 </div>
-                <p className="text-xs opacity-90">
+                <p className="text-xs text-white/90">
                   {monthlyData.ordenes.length} órdenes facturadas
                   {monthlyData.partialDeliveries.length > 0 &&
                     ` + ${monthlyData.partialDeliveries.length} entrega${monthlyData.partialDeliveries.length !== 1 ? "s" : ""} parcial${monthlyData.partialDeliveries.length !== 1 ? "s" : ""}`}
@@ -734,11 +734,11 @@ export function BusinessExpenses() {
 
             <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-white flex items-center gap-2">
                   <TrendingDown className="h-4 w-4" />
                   Egresos
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-white/90">
                   Egresos de {selectedMonthLabel}
                 </CardDescription>
               </CardHeader>
@@ -746,7 +746,7 @@ export function BusinessExpenses() {
                 <div className="text-2xl font-bold">
                   ${formatCurrency(monthlyData.totalEgresos)}
                 </div>
-                <p className="text-xs opacity-90">
+                <p className="text-xs text-white/90">
                   {monthlyData.expenses.length +
                     monthlyData.providerExpenses.length}{" "}
                   gastos registrados
@@ -756,11 +756,11 @@ export function BusinessExpenses() {
 
             <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-white flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   Clientes Deudores
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-white/90">
                   Clientes deudores en {selectedMonthLabel}
                 </CardDescription>
               </CardHeader>
@@ -768,7 +768,7 @@ export function BusinessExpenses() {
                 <div className="text-2xl font-bold">
                   ${formatCurrency(monthlyData.totalDeudores)}
                 </div>
-                <p className="text-xs opacity-90">
+                <p className="text-xs text-white/90">
                   {monthlyData.clientesUnicosConDeuda.length} cliente
                   {monthlyData.clientesUnicosConDeuda.length !== 1
                     ? "s"
@@ -787,7 +787,7 @@ export function BusinessExpenses() {
               }`}
             >
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-white flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
                   Balance del Mes
                 </CardTitle>
@@ -796,7 +796,9 @@ export function BusinessExpenses() {
                 <div className="text-2xl font-bold">
                   ${formatCurrency(monthlyData.balance)}
                 </div>
-                <p className="text-xs opacity-90">Total recibido + adeudado</p>
+                <p className="text-xs text-white/90">
+                  Total recibido + adeudado
+                </p>
               </CardContent>
             </Card>
           </div>
